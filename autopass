@@ -1,9 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-win=$(hyprctl activewindow -j)
-class=$(jq -r '.class' <<<"$win")
-title=$(jq -r '.title' <<<"$win")
+layout=${AUTOPASS_LAYOUT:-fr}   # disposition clavier pour dotool (KDE Wayland)
+
+# ---------- détection de l'environnement ----------
+if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+  backend=hyprland
+elif [ "${XDG_SESSION_TYPE:-}" = wayland ] && command -v kdotool >/dev/null; then
+  backend=kde-wayland
+elif [ -n "${DISPLAY:-}" ] && command -v xdotool >/dev/null; then
+  backend=x11
+else
+  notify-send autopass "Environnement non supporté"
+  exit 1
+fi
+
+# ---------- fenêtre active : remplit $class et $title ----------
+get_window() {
+  local win id
+  case $backend in
+    hyprland)
+      win=$(hyprctl activewindow -j)
+      class=$(jq -r '.class' <<<"$win")
+      title=$(jq -r '.title' <<<"$win")
+      ;;
+    kde-wayland)
+      id=$(kdotool getactivewindow)
+      class=$(kdotool getwindowclassname "$id")
+      title=$(kdotool getwindowname "$id")
+      ;;
+    x11)
+      id=$(xdotool getactivewindow)
+      title=$(xdotool getwindowname "$id")
+      class=$(xprop -id "$id" WM_CLASS | awk -F'"' '{print $4}')
+      ;;
+  esac
+}
+
+# ---------- saisie ----------
+type_text() {
+  local s=$1 i
+  case $backend in
+    hyprland)
+      for ((i = 0; i < ${#s}; i++)); do
+        printf '%s' "${s:i:1}" | wtype -
+      done
+      ;;
+    kde-wayland)
+      printf 'type %s\n' "$s" | DOTOOL_XKB_LAYOUT=$layout dotool
+      ;;
+    x11)
+      printf '%s' "$s" | xdotool type --clearmodifiers --file -
+      ;;
+  esac
+}
+
+press() {   # $1 = tab | enter
+  case $backend in
+    hyprland)
+      case $1 in tab) wtype -k Tab ;; enter) wtype -k Return ;; esac ;;
+    kde-wayland)
+      printf 'key %s\n' "$1" | DOTOOL_XKB_LAYOUT=$layout dotool ;;
+    x11)
+      case $1 in tab) xdotool key Tab ;; enter) xdotool key Return ;; esac ;;
+  esac
+}
+
+# ---------- main ----------
+get_window
+
+if [ "${1:-}" = "--window" ]; then
+  printf '%s\n%s\n' "$class" "$title"
+  exit 0
+fi
 
 vault=$(pass show autopass/vault)
 
@@ -22,14 +91,7 @@ if [ "$found" -eq 0 ]; then
   exit 1
 fi
 
-type_text() {
-  local s=$1 i
-  for ((i = 0; i < ${#s}; i++)); do
-    printf '%s' "${s:i:1}" | wtype -
-  done
-}
-
 type_text "$user"
-wtype -k Tab
+press tab
 type_text "$pw"
-wtype -k Return
+press enter
