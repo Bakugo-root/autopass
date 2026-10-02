@@ -1,18 +1,31 @@
 # autopass
 
-Auto-saisie d'identifiant et de mot de passe pour Arch Linux / Hyprland, basée sur `pass` (GPG).
+Auto-saisie d'identifiant et de mot de passe pour Linux, basée sur `pass` (GPG).
 Raccourci clavier -> fenêtre active -> ligne du coffre -> identifiant, Tab, mot de passe, Entrée.
 Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
 
-## Prérequis
-- Arch Linux, Wayland, **Hyprland** (le script utilise `hyprctl`)
-- Paquets : `git pass gnupg wtype jq libnotify`
+## Environnements supportés
+
+| Environnement | Détection fenêtre | Saisie | Statut |
+|---|---|---|---|
+| Hyprland (Wayland) | `hyprctl` + `jq` | `wtype` | testé |
+| KDE Plasma (Wayland) | `kdotool` | `dotool` | non testé |
+| X11 (tout bureau) | `xdotool` + `xprop` | `xdotool` | non testé |
+
+L'environnement est détecté automatiquement.
+
+## Dépendances
+- Toujours : `git pass gnupg libnotify`
+- Hyprland : `wtype jq`
+- KDE Wayland : `kdotool` et `dotool` (AUR). `dotool` a besoin d'un accès à `/dev/uinput` (voir sa documentation).
+  La disposition clavier se règle avec `AUTOPASS_LAYOUT` (`fr` par défaut).
+- X11 : `xdotool xorg-xprop`
 
 ## Installation
 
-1. Installer les outils
+1. Installer les outils (exemple Hyprland)
 
-        sudo pacman -S git pass gnupg wtype jq libnotify
+        sudo pacman -S git pass gnupg libnotify wtype jq
 
 2. Récupérer le code
 
@@ -29,9 +42,12 @@ Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
         mkdir -p ~/.local/bin
         ln -sf ~/autopass/autopass ~/.local/bin/autopass
 
-5. Ajouter le raccourci dans la config Hyprland (puis `hyprctl reload`)
+5. Créer le raccourci clavier
+   - Hyprland, dans la config (puis `hyprctl reload`) :
 
-        bind = SUPER, P, exec, ~/.local/bin/autopass
+         bind = SUPER, P, exec, ~/.local/bin/autopass
+
+   - KDE : Paramètres système -> Raccourcis -> ajouter une commande `~/.local/bin/autopass`.
 
 ## Le coffre
 
@@ -53,20 +69,20 @@ Exemple (faux comptes) :
 
 Pour trouver le bon motif d'une fenêtre (cliquer dessus pendant les 3 secondes) :
 
-    sleep 3; hyprctl activewindow -j | jq '.class,.title'
+    sleep 3; autopass --window
 
 ## Utilisation
-Cliquer dans le champ identifiant, puis `SUPER+P`. La passphrase GPG est demandée la première fois.
+Cliquer dans le champ identifiant, puis lancer le raccourci. La passphrase GPG est demandée la première fois.
 
 ## Dépannage
-- **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire la commande `hyprctl` ci-dessus.
-- **Caractères qui apparaissent puis disparaissent** (apps Electron comme Discord) : c'est pourquoi le script tape le texte caractère par caractère, avec un `wtype` par caractère.
+- **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire `autopass --window`.
+- **Caractères qui apparaissent puis disparaissent** (apps Electron comme Discord) : le script tape donc le texte caractère par caractère avec `wtype`.
 - **Caractères faux** : ne pas utiliser `ydotool`, qui envoie des codes de touches QWERTY et donne un résultat faux sur un clavier AZERTY.
-- **Rien ne se passe** : vérifier que le bind est chargé (`hyprctl binds | grep autopass`).
+- **Rien ne se passe sous Hyprland** : vérifier que le bind est chargé (`hyprctl binds | grep autopass`).
 
 ## Limites et sécurité
 - Aucune protection anti-phishing : toute page dont le titre contient le motif déclenche la saisie (comme l'Auto-Type de KeePass).
 - Chaque appui déchiffre tout le coffre en mémoire, le temps de trouver la bonne ligne, puis la variable est effacée.
-- Le mot de passe passe par l'entrée standard de `wtype`, donc il n'apparaît jamais dans `ps`, et il n'est jamais écrit sur disque en clair.
+- Le mot de passe passe par l'entrée standard des outils de saisie, donc il n'apparaît jamais dans `ps`, et il n'est jamais écrit sur disque en clair.
 - Pas de TOTP / double authentification : le code se tape à la main.
 - Le dépôt ne contient aucun secret : le coffre vit dans `~/.password-store`, hors du repo.
