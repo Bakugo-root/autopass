@@ -6,6 +6,20 @@ Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
 
 Ce dépôt suppose que vous savez utiliser `pass` et GPG. Sinon, commencer par leur documentation (section « Documentation officielle » en bas).
 
+## Pourquoi autopass
+
+- **Souveraineté** : vos mots de passe restent sur votre machine, chiffrés avec votre clé GPG. Pas de compte, pas de serveur, pas de datacenter : il n'y a personne à qui faire confiance.
+- **Léger** : rien ne tourne en arrière-plan. Le script démarre au raccourci clavier, fait son travail puis s'arrête.
+- **Un seul endroit** : un mot de passe change dans le coffre, et tous les raccourcis le prennent en compte. Plus de mot de passe réutilisé pour s'en souvenir, et plus besoin d'aller le lire : il n'est jamais affiché.
+- **Marche partout** : applications natives, navigateurs, toute fenêtre avec un champ texte. Pas d'extension à installer par navigateur, donc pas de code tiers qui lit vos pages.
+- **Ne touche pas au presse-papier** : votre contenu copié n'est pas écrasé, et aucun historique de presse-papier ne garde le mot de passe.
+- **Discret** : le mot de passe n'est jamais affiché à l'écran, jamais visible dans `ps`, jamais écrit en clair sur disque.
+- **Pas de cryptographie maison** : tout le chiffrement est fait par GPG. Le script relie seulement la fenêtre active à une ligne du coffre.
+- **Lisible et vérifiable** : un seul script bash, relisible en quelques minutes.
+- **Coffre simple** : une ligne par compte dans un seul fichier chiffré, facile à éditer et à sauvegarder.
+- **Hors ligne** : aucun abonnement, aucun compte, aucune connexion nécessaire.
+- **Multi-bureaux** : Hyprland et KDE Wayland (testés), X11 (non testé).
+
 ## Environnements supportés
 
 | Environnement | Détection fenêtre | Saisie | Statut |
