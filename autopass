@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+RULES="$HOME/.config/autopass/rules.conf"
+
+win=$(hyprctl activewindow -j)
+class=$(jq -r '.class' <<<"$win")
+title=$(jq -r '.title' <<<"$win")
+
+entry=$(awk -F'=' -v c="$class" -v t="$title" '
+  /^#/ || NF<2 {next}
+  $1==c || index(t,$1) {print $2; exit}' "$RULES")
+
+if [ -z "$entry" ]; then
+  notify-send autopass "Aucune règle pour : $class"
+  exit 1
+fi
+
+data=$(pass show "$entry")
+pw=$(head -n1 <<<"$data")
+user=$(grep -m1 '^user:' <<<"$data" | cut -d' ' -f2-)
+
+printf '%s' "$user" | wtype -
+wtype -k Tab
+printf '%s' "$pw" | wtype -
+wtype -k Return

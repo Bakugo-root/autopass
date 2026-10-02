@@ -1,0 +1,3 @@
+rules.conf
+*.log
+.password-store/
