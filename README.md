@@ -17,8 +17,7 @@ L'environnement est détecté automatiquement.
 ## Dépendances
 - Toujours : `git pass gnupg libnotify`
 - Hyprland : `wtype jq`
-- KDE Wayland : `kdotool` et `dotool` (AUR). `dotool` a besoin d'un accès à `/dev/uinput` (voir sa documentation).
-  La disposition clavier se règle avec `AUTOPASS_LAYOUT` (`fr` par défaut).
+- KDE Wayland : `kdotool` et `dotool` (AUR). La disposition clavier se règle avec `AUTOPASS_LAYOUT` (`fr` par défaut).
 - X11 : `xdotool xorg-xprop`
 
 ## Installation
@@ -26,6 +25,11 @@ L'environnement est détecté automatiquement.
 1. Installer les outils (exemple Hyprland)
 
         sudo pacman -S git pass gnupg libnotify wtype jq
+
+   Exemple KDE Wayland :
+
+        sudo pacman -S git pass gnupg libnotify
+        paru -S kdotool dotool
 
 2. Récupérer le code
 
@@ -47,7 +51,8 @@ L'environnement est détecté automatiquement.
 
          bind = SUPER, P, exec, ~/.local/bin/autopass
 
-   - KDE : Paramètres système -> Raccourcis -> ajouter une commande `~/.local/bin/autopass`.
+   - KDE : Paramètres système -> Clavier -> Raccourcis -> ajouter une commande `~/.local/bin/autopass`.
+     Éviter `Meta+P` (peut être déjà pris), préférer par exemple `Meta+Ctrl+P`.
 
 ## Le coffre
 
@@ -67,18 +72,51 @@ Exemple (faux comptes) :
 - Les lignes vides et celles qui commencent par `#` sont ignorées.
 - Le mot de passe est tout ce qui suit le 2e `;` (il peut contenir des `;`). Le motif et l'identifiant ne doivent pas en contenir.
 
-Pour trouver le bon motif d'une fenêtre (cliquer dessus pendant les 3 secondes) :
+## Tester chaque brique
+
+Avant d'utiliser le raccourci, tester séparément la détection de fenêtre et la saisie.
+
+**1. Fenêtre active** : cliquer sur la fenêtre voulue pendant les 3 secondes.
 
     sleep 3; autopass --window
+
+Doit afficher la classe puis le titre de la fenêtre. C'est aussi la commande qui donne le motif à mettre dans le coffre.
+
+**2. Saisie seule** : cliquer dans un champ texte pendant les 3 secondes. Le texte doit sortir exact.
+
+Hyprland :
+
+    sleep 3; printf '%s' 'moi@example.com' | wtype -
+
+KDE Wayland :
+
+    sleep 3; printf 'type moi@example.com\n' | DOTOOL_XKB_LAYOUT=fr dotool
+
+X11 :
+
+    sleep 3; printf '%s' 'moi@example.com' | xdotool type --file -
+
+- Vérifier surtout `@`, les chiffres et les lettres qui changent d'une disposition de clavier à l'autre.
+- Tester aussi dans une application Electron (Discord, VS Code), qui est plus sensible à la saisie rapide.
+- Si les caractères sont faux sous KDE, régler la disposition : `DOTOOL_XKB_LAYOUT` (par exemple `fr`) et éventuellement `DOTOOL_XKB_VARIANT`.
 
 ## Utilisation
 Cliquer dans le champ identifiant, puis lancer le raccourci. La passphrase GPG est demandée la première fois.
 
+## Sauvegarde de la clé GPG
+Sans la clé privée et sa passphrase, le coffre est irrécupérable (réinstallation, disque mort). À faire une fois :
+
+    gpg --export-secret-keys --armor SON_MAIL > cle-gpg-backup.asc
+
+Ranger ce fichier hors du PC (clé USB, autre appareil), ne jamais le mettre dans un dépôt git.
+Pour restaurer : `gpg --import cle-gpg-backup.asc`, puis `gpg --edit-key SON_MAIL trust` (confiance `5`), et recopier `~/.password-store`.
+
 ## Dépannage
 - **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire `autopass --window`.
-- **Caractères qui apparaissent puis disparaissent** (apps Electron comme Discord) : le script tape donc le texte caractère par caractère avec `wtype`.
+- **Caractères qui apparaissent puis disparaissent** (apps Electron comme Discord) : sous Hyprland, le script tape donc le texte caractère par caractère avec `wtype`.
 - **Caractères faux** : ne pas utiliser `ydotool`, qui envoie des codes de touches QWERTY et donne un résultat faux sur un clavier AZERTY.
 - **Rien ne se passe sous Hyprland** : vérifier que le bind est chargé (`hyprctl binds | grep autopass`).
+- **`dotool` ou `ydotool` ne tape rien, ou erreur de permission** : voir [docs/depannage.md](docs/depannage.md) (accès à `/dev/uinput`).
 
 ## Limites et sécurité
 - Aucune protection anti-phishing : toute page dont le titre contient le motif déclenche la saisie (comme l'Auto-Type de KeePass).
