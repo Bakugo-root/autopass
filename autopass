@@ -87,7 +87,9 @@ done <<<"$vault"
 unset vault
 
 if [ "$found" -eq 0 ]; then
-  notify-send autopass "Aucune règle pour : $class"
+  short=${title% — *}
+  short=${short##*| }
+  notify-send autopass "Aucune règle pour : ${short:-$class}"
   exit 1
 fi
 
