@@ -4,6 +4,8 @@ Auto-saisie d'identifiant et de mot de passe pour Linux, basée sur `pass` (GPG)
 Raccourci clavier -> fenêtre active -> ligne du coffre -> identifiant, Tab, mot de passe, Entrée.
 Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
 
+Ce dépôt suppose que vous savez utiliser `pass` et GPG. Sinon, commencer par leur documentation (section « Documentation officielle » en bas).
+
 ## Environnements supportés
 
 | Environnement | Détection fenêtre | Saisie | Statut |
@@ -35,25 +37,28 @@ L'environnement est détecté automatiquement.
 
         git clone https://github.com/Bakugo-root/autopass.git ~/autopass
 
-3. Créer sa clé GPG et le coffre `pass` (chaque personne a sa clé et sa passphrase)
+3. Créer sa clé GPG et initialiser le coffre `pass`. Chaque personne a sa clé et sa passphrase :
 
         gpg --full-generate-key
-        gpg --list-secret-keys --keyid-format long
-        pass init SON_MAIL
+        pass init SON_ID_GPG
+
+   Les détails (choix de la clé, passphrase, `pass init`) sont dans la documentation de `pass` et de GPG, liée plus bas.
 
 4. Installer le script
 
         mkdir -p ~/.local/bin
         ln -sf ~/autopass/autopass ~/.local/bin/autopass
 
-   `ln -sf` crée un **lien symbolique** : `~/.local/bin/autopass` n'est pas une copie du script, c'est un raccourci qui pointe vers `~/autopass/autopass`.
-   - Il n'y a qu'un seul fichier réel, celui du dépôt. Après un `git pull`, le raccourci clavier utilise tout de suite la nouvelle version, sans recopier quoi que ce soit.
-   - `-s` demande un lien symbolique, et `-f` remplace le lien s'il existe déjà (on peut relancer la commande sans erreur).
-   - Vérifier le lien : `ls -l ~/.local/bin/autopass` doit afficher une flèche `->` vers `~/autopass/autopass`.
+   `ln -sf` crée un **lien symbolique** : `~/.local/bin/autopass` n'est pas une copie, c'est un raccourci vers `~/autopass/autopass`.
+   - Un seul fichier réel : après un `git pull`, le raccourci clavier utilise tout de suite la nouvelle version.
+   - `-s` demande un lien symbolique, `-f` remplace le lien s'il existe déjà.
+   - Vérifier : `ls -l ~/.local/bin/autopass` doit afficher une flèche `->` vers `~/autopass/autopass`.
    - Si le dépôt est déplacé ou supprimé, le lien est cassé : refaire la commande avec le nouveau chemin.
-   - Pour lancer `autopass` depuis un terminal (par exemple `autopass --window`), `~/.local/bin` doit être dans le `PATH`. En cas de « command not found » : `fish_add_path ~/.local/bin` sous fish, ou ajouter `export PATH="$HOME/.local/bin:$PATH"` à `~/.bashrc` sous bash. Le raccourci clavier, lui, utilise le chemin complet et n'en a pas besoin.
+   - Pour lancer `autopass` depuis un terminal (par exemple `autopass --window`), `~/.local/bin` doit être dans le `PATH`.
+     En cas de « command not found » : `fish_add_path ~/.local/bin` sous fish, ou `export PATH="$HOME/.local/bin:$PATH"` dans `~/.bashrc` sous bash.
+     Le raccourci clavier utilise le chemin complet et n'en a pas besoin.
 
-5. Créer le raccourci clavier (la combinaison est libre : `SUPER+P` et `Ctrl+Alt+A` ci-dessous ne sont que des exemples)
+5. Créer le raccourci clavier. La combinaison est libre : `SUPER+P` et `Ctrl+Alt+A` ne sont que des exemples.
    - Hyprland, dans la config (puis `hyprctl reload`) :
 
          bind = SUPER, P, exec, ~/.local/bin/autopass
@@ -103,19 +108,15 @@ X11 :
     sleep 3; printf '%s' 'moi@example.com' | xdotool type --file -
 
 - Vérifier surtout `@`, les chiffres et les lettres qui changent d'une disposition de clavier à l'autre.
-- Tester aussi dans une application Electron (Discord, VS Code), qui est plus sensible à la saisie rapide.
-- Si les caractères sont faux sous KDE, régler la disposition : `DOTOOL_XKB_LAYOUT` (par exemple `fr`) et éventuellement `DOTOOL_XKB_VARIANT`.
+- Tester aussi dans une application Electron (Discord, VS Code), plus sensible à la saisie rapide.
+- Si les caractères sont faux sous KDE, régler `DOTOOL_XKB_LAYOUT` (par exemple `fr`) et éventuellement `DOTOOL_XKB_VARIANT`.
 
 ## Utilisation
 Cliquer dans le champ identifiant, puis lancer le raccourci. La passphrase GPG est demandée la première fois.
 
 ## Sauvegarde de la clé GPG
-Sans la clé privée et sa passphrase, le coffre est irrécupérable (réinstallation, disque mort). À faire une fois :
-
-    gpg --export-secret-keys --armor SON_MAIL > cle-gpg-backup.asc
-
-Ranger ce fichier hors du PC (clé USB, autre appareil), ne jamais le mettre dans un dépôt git.
-Pour restaurer : `gpg --import cle-gpg-backup.asc`, puis `gpg --edit-key SON_MAIL trust` (confiance `5`), et recopier `~/.password-store`.
+Sans la clé privée et sa passphrase, le coffre est irrécupérable (réinstallation, disque mort).
+La sauvegarder une fois, hors du PC, et ne jamais la mettre dans un dépôt git. La procédure est dans la documentation GPG liée plus bas.
 
 ## Dépannage
 - **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire `autopass --window`.
@@ -130,3 +131,14 @@ Pour restaurer : `gpg --import cle-gpg-backup.asc`, puis `gpg --edit-key SON_MAI
 - Le mot de passe passe par l'entrée standard des outils de saisie, donc il n'apparaît jamais dans `ps`, et il n'est jamais écrit sur disque en clair.
 - Pas de TOTP / double authentification : le code se tape à la main.
 - Le dépôt ne contient aucun secret : le coffre vit dans `~/.password-store`, hors du repo.
+
+## Documentation officielle
+- `pass` : <https://www.passwordstore.org/> et <https://wiki.archlinux.org/title/Pass>
+- GPG : <https://wiki.archlinux.org/title/GnuPG>
+- AUR (installer `kdotool`, `dotool`) : <https://wiki.archlinux.org/title/AUR>
+- `wtype` : <https://github.com/atx/wtype>
+- `kdotool` : <https://github.com/jinliu/kdotool>
+- `dotool` : <https://git.sr.ht/~geb/dotool>
+- `xdotool` : <https://github.com/jordansissel/xdotool>
+- `jq` : <https://jqlang.github.io/jq/>
+- Hyprland : <https://wiki.hyprland.org/>
