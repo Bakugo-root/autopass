@@ -9,7 +9,7 @@ Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
 | Environnement | Détection fenêtre | Saisie | Statut |
 |---|---|---|---|
 | Hyprland (Wayland) | `hyprctl` + `jq` | `wtype` | testé |
-| KDE Plasma (Wayland) | `kdotool` | `dotool` | non testé |
+| KDE Plasma (Wayland) | `kdotool` | `dotool` | testé |
 | X11 (tout bureau) | `xdotool` + `xprop` | `xdotool` | non testé |
 
 L'environnement est détecté automatiquement.
@@ -53,13 +53,12 @@ L'environnement est détecté automatiquement.
    - Si le dépôt est déplacé ou supprimé, le lien est cassé : refaire la commande avec le nouveau chemin.
    - Pour lancer `autopass` depuis un terminal (par exemple `autopass --window`), `~/.local/bin` doit être dans le `PATH`. En cas de « command not found » : `fish_add_path ~/.local/bin` sous fish, ou ajouter `export PATH="$HOME/.local/bin:$PATH"` à `~/.bashrc` sous bash. Le raccourci clavier, lui, utilise le chemin complet et n'en a pas besoin.
 
-5. Créer le raccourci clavier
+5. Créer le raccourci clavier (la combinaison est libre : `SUPER+P` et `Ctrl+Alt+A` ci-dessous ne sont que des exemples)
    - Hyprland, dans la config (puis `hyprctl reload`) :
 
          bind = SUPER, P, exec, ~/.local/bin/autopass
 
-   - KDE : Paramètres système -> Clavier -> Raccourcis -> ajouter une commande `~/.local/bin/autopass`.
-     Éviter `Meta+P` (peut être déjà pris), préférer par exemple `Meta+Ctrl+P`.
+   - KDE : Paramètres système -> Clavier -> Raccourcis -> ajouter une commande `~/.local/bin/autopass`, avec la combinaison de votre choix (par exemple `Ctrl+Alt+A`).
 
 ## Le coffre
 
