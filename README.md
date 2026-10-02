@@ -46,6 +46,13 @@ L'environnement est détecté automatiquement.
         mkdir -p ~/.local/bin
         ln -sf ~/autopass/autopass ~/.local/bin/autopass
 
+   `ln -sf` crée un **lien symbolique** : `~/.local/bin/autopass` n'est pas une copie du script, c'est un raccourci qui pointe vers `~/autopass/autopass`.
+   - Il n'y a qu'un seul fichier réel, celui du dépôt. Après un `git pull`, le raccourci clavier utilise tout de suite la nouvelle version, sans recopier quoi que ce soit.
+   - `-s` demande un lien symbolique, et `-f` remplace le lien s'il existe déjà (on peut relancer la commande sans erreur).
+   - Vérifier le lien : `ls -l ~/.local/bin/autopass` doit afficher une flèche `->` vers `~/autopass/autopass`.
+   - Si le dépôt est déplacé ou supprimé, le lien est cassé : refaire la commande avec le nouveau chemin.
+   - Pour lancer `autopass` depuis un terminal (par exemple `autopass --window`), `~/.local/bin` doit être dans le `PATH`. En cas de « command not found » : `fish_add_path ~/.local/bin` sous fish, ou ajouter `export PATH="$HOME/.local/bin:$PATH"` à `~/.bashrc` sous bash. Le raccourci clavier, lui, utilise le chemin complet et n'en a pas besoin.
+
 5. Créer le raccourci clavier
    - Hyprland, dans la config (puis `hyprctl reload`) :
 
