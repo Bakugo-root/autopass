@@ -1,4 +1,4 @@
-# autopass
+# autop@ss
 
 Auto-saisie d'identifiant et de mot de passe pour Linux, basée sur `pass` (GPG).
 Raccourci clavier -> fenêtre active -> ligne du coffre -> identifiant, Tab, mot de passe, Entrée.
