@@ -85,7 +85,7 @@ Une seule entrée chiffrée, une ligne par compte, au format `motif;identifiant;
 
     env EDITOR=nano pass edit autopass/vault
 
-Exemple (faux comptes) :
+Exemples:
 
     discord;moi@example.com;motdepasse1
     Discord;moi@example.com;motdepasse1
