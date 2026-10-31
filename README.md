@@ -96,7 +96,7 @@ Examples:
 
 - The pattern is compared to the window **class** (equality), otherwise to its **title** (the pattern is contained in it). Case is ignored (`discord` and `Discord` are equivalent).
 - A native application has a class (`discord`), a website in Firefox is recognized by its title (`Discord`).
-- A pattern starting with `re:` is a **regular expression** tested on the class and on the title: `re:^(GitHub|GitLab)`. It cannot contain a `;`, and a regex ending with `}` needs an explicit sequence.
+- A pattern starting with `re:` is a **regular expression** tested on the class and on the title: `re:^(GitHub|GitLab)`. Case is ignored here too (`re:^GitHub` also matches `github`). It cannot contain a `;`, and a regex ending with `}` needs an explicit sequence.
 - **An uncertain match types nothing.** If several lines match with different accounts, a menu asks which one to use (Esc: nothing is typed). If the window changes during the choice, nothing is typed either. Several lines giving exactly the same account do not trigger a menu. No matching line: "No rule for" notification, nothing is typed.
 - Empty lines and lines starting with `#` are ignored.
 - The password is everything after the 2nd `;` (it may contain `;`). The pattern and the username must not contain any.
@@ -202,7 +202,7 @@ Back it up once, off the PC, and never put it in a git repository. The procedure
 
 ## Limits and security
 - No anti-phishing protection: any page whose title contains the pattern triggers typing (like KeePass Auto-Type).
-- Each press decrypts the whole vault in memory, just long enough to find the right line, then the variable is cleared.
+- Each press decrypts the whole vault in memory and parses it into shell variables for the duration of the run (about a second). The raw decrypted text is cleared right after parsing, but the parsed passwords of all accounts stay in the script's memory until autopass exits. Nothing is written to disk in clear text.
 - The password goes through the typing tools' standard input, so it never appears in `ps`, and it is never written to disk in clear text.
 - No TOTP / two-factor authentication: the code is typed by hand.
 - The repository contains no secret: the vault lives in `~/.password-store`, outside the repo.
