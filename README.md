@@ -12,7 +12,7 @@ Ce dépôt suppose que vous savez utiliser `pass` et GPG. Sinon, commencer par l
 - **Léger** : rien ne tourne en arrière-plan. Le script démarre au raccourci clavier, fait son travail puis s'arrête.
 - **Un seul endroit** : un mot de passe change dans le coffre, et tous les raccourcis le prennent en compte. Plus de mot de passe réutilisé pour s'en souvenir, et plus besoin d'aller le lire : il n'est jamais affiché.
 - **Marche partout** : applications natives, navigateurs, toute fenêtre avec un champ texte. Pas d'extension à installer par navigateur, donc pas de code tiers qui lit vos pages.
-- **Ne touche pas au presse-papier** : votre contenu copié n'est pas écrasé, et aucun historique de presse-papier ne garde le mot de passe.
+- **Ne touche pas au presse-papier** (sauf si vous choisissez l'étape optionnelle `copy`) : votre contenu copié n'est pas écrasé, et aucun historique de presse-papier ne garde le mot de passe.
 - **Discret** : le mot de passe n'est jamais affiché à l'écran, jamais visible dans `ps`, jamais écrit en clair sur disque.
 - **Pas de cryptographie maison** : tout le chiffrement est fait par GPG. Le script relie seulement la fenêtre active à une ligne du coffre.
 - **Lisible et vérifiable** : un seul script bash, relisible en quelques minutes.
@@ -35,6 +35,9 @@ L'environnement est détecté automatiquement.
 - Hyprland : `wtype jq`
 - KDE Wayland : `kdotool` et `dotool` (AUR). La disposition clavier se règle avec `AUTOPASS_LAYOUT` (`fr` par défaut).
 - X11 : `xdotool xorg-xprop`
+- Optionnel :
+  - un menu (`fuzzel`, `wofi`, `rofi`, `bemenu` ou `tofi`, détecté automatiquement, ou `AUTOPASS_MENU="commande args"`) pour choisir quand plusieurs comptes correspondent ;
+  - `wl-clipboard` (Wayland) ou `xclip` (X11) pour l'étape `copy`.
 
 ## Installation
 
@@ -91,9 +94,10 @@ Exemples:
     Discord;moi@example.com;motdepasse1
     Sign in to GitHub;mon_pseudo;motdepasse2
 
-- Le motif est comparé à la **classe** de la fenêtre (égalité), sinon à son **titre** (le motif y est contenu).
+- Le motif est comparé à la **classe** de la fenêtre (égalité), sinon à son **titre** (le motif y est contenu). La casse est ignorée (`discord` et `Discord` sont équivalents).
 - Une application native a une classe (`discord`), un site dans Firefox se reconnaît à son titre (`Discord`).
-- La première ligne qui correspond gagne, donc l'ordre compte.
+- Un motif qui commence par `re:` est une **expression régulière** testée sur la classe et sur le titre : `re:^(GitHub|GitLab)`. Un `;` ne peut pas y figurer, et une regex qui finit par `}` doit recevoir une séquence explicite.
+- **Une correspondance incertaine ne tape rien.** Si plusieurs lignes correspondent avec des comptes différents, un menu te demande lequel choisir (Échap : rien n'est tapé). Si la fenêtre change pendant le choix, rien n'est tapé non plus. Plusieurs lignes qui donnent exactement le même compte ne déclenchent pas de menu. Aucune ligne : notification « Aucune règle », rien n'est tapé.
 - Les lignes vides et celles qui commencent par `#` sont ignorées.
 - Le mot de passe est tout ce qui suit le 2e `;` (il peut contenir des `;`). Le motif et l'identifiant ne doivent pas en contenir.
 
@@ -112,6 +116,8 @@ Par défaut, autopass tape : identifiant, Tab, mot de passe, Entrée. Pour chang
 | `tab` | appuie sur Tab |
 | `enter` | appuie sur Entrée |
 | `wait` | pause d'une seconde (page qui charge entre deux étapes) |
+| `wait:N` | pause de N secondes, décimales permises : `wait:2.5` |
+| `copy` | copie le mot de passe dans le presse-papier (voir ci-dessous) |
 
 Exemples :
 
@@ -119,11 +125,37 @@ Exemples :
     google{user,enter,wait,pass,enter};moi@example.com;mdp3  # identifiant et mot de passe sur deux pages
     banque{pass,enter};;123456                               # seulement le mot de passe (identifiant vide)
     site{user,tab,pass};moi;mdp4                             # remplit sans valider
+    appli{user,tab,wait:2.5,pass,enter};moi;mdp5             # pause de 2,5 s au milieu
+    champ_rebelle{user,copy};moi;mdp6                        # tape l'identifiant, copie le mot de passe
 
 - Les espaces et la casse sont ignorés dans la séquence (`{ pass , ENTER }` fonctionne).
 - La séquence est vérifiée **avant** de taper : une étape inconnue ou une séquence vide donne une notification « Séquence invalide » et rien n'est saisi.
 - Les accolades ne servent pas à la comparaison : seul ce qui précède le dernier `{` est le motif.
 - Un motif qui se termine lui-même par `}` doit recevoir une séquence explicite, par exemple `Titre {spécial}{user,tab,pass,enter}`.
+
+### Étape `copy` : mot de passe dans le presse-papier
+
+Pour les champs où la saisie automatique échoue. Le mot de passe est copié (avec l'indication « sensible » sous Wayland), puis **effacé après 30 s** (`AUTOPASS_CLEAR_DELAY`, en secondes).
+- Seule la ligne copiée par autopass est effacée : si tu as copié autre chose entre-temps, le presse-papier n'est pas touché.
+- Si `cliphist` est installé, l'entrée correspondant à ce mot de passe en est retirée, et uniquement elle.
+- Un processus en arrière-plan reste donc actif jusqu'à l'effacement (30 s), seulement quand `copy` est utilisé.
+- Sous X11 (`xclip`) : non testé.
+
+## Commandes
+
+| Commande | Effet |
+|---|---|
+| `autopass` | saisit le compte de la fenêtre active (via le raccourci clavier) |
+| `autopass --add` | ajoute un compte au coffre depuis un terminal : clique sur la fenêtre pendant 3 s (`AUTOPASS_ADD_DELAY`), puis choisis le motif (classe, titre court ou libre), l'identifiant, le mot de passe (saisi sans écho, confirmé) et une séquence optionnelle. Le coffre existant n'est jamais écrasé s'il n'a pas pu être lu |
+| `autopass --check` | valide tout le coffre (lignes mal formées, motifs vides, regex et séquences invalides, motifs en double avec des comptes différents). N'affiche jamais de mot de passe |
+| `autopass --dry-run` | montre quelles règles correspondent à la fenêtre active et ce qui se passerait (saisie directe ou menu), sans rien taper : `sleep 3; autopass --dry-run` |
+| `autopass --window` | affiche la classe et le titre de la fenêtre active |
+
+Les erreurs (coffre illisible, passphrase annulée, outil manquant, saisie échouée) donnent une notification et un message sur stderr.
+
+## Tests
+
+`tests/run.sh` lance les tests avec de faux outils (`wtype`, `pass`, `wl-copy`, `cliphist`...) : il ne touche ni au vrai coffre ni au presse-papier.
 
 ## Tester chaque brique
 
@@ -161,7 +193,8 @@ Sans la clé privée et sa passphrase, le coffre est irrécupérable (réinstall
 La sauvegarder une fois, hors du PC, et ne jamais la mettre dans un dépôt git. La procédure est dans la documentation GPG liée plus bas.
 
 ## Dépannage
-- **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire `autopass --window`.
+- **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire `autopass --window`, ou ajouter la règle avec `autopass --add`.
+- **Le coffre ne marche pas comme prévu** : `autopass --check` signale les lignes fautives, `autopass --dry-run` montre ce qui correspond.
 - **Caractères qui apparaissent puis disparaissent** (apps Electron comme Discord) : sous Hyprland, le script tape donc le texte caractère par caractère avec `wtype`.
 - **Caractères faux** : ne pas utiliser `ydotool`, qui envoie des codes de touches QWERTY et donne un résultat faux sur un clavier AZERTY.
 - **Rien ne se passe sous Hyprland** : vérifier que le bind est chargé (`hyprctl binds | grep autopass`).
