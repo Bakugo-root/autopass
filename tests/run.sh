@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests d'autopass avec de faux outils (wtype, pass, hyprctl, wl-copy, cliphist...).
-# Ne touche ni à ton vrai coffre ni à ton presse-papier. Usage : tests/run.sh
+# autopass tests using fake tools (wtype, pass, hyprctl, wl-copy, cliphist...).
+# Touches neither your real vault nor your clipboard. Usage: tests/run.sh
 set -u
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -9,7 +9,7 @@ trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin" "$T/store/autopass"
 export T
 
-# ---------- faux outils ----------
+# ---------- fake tools ----------
 mock() { printf '#!/usr/bin/env bash\n%s\n' "$2" >"$T/bin/$1"; chmod +x "$T/bin/$1"; }
 
 mock hyprctl 'cat "$T/win.json"'
@@ -43,15 +43,15 @@ unset DISPLAY XDG_SESSION_TYPE
 # ---------- helpers ----------
 pass_n=0; fail_n=0
 ok()   { pass_n=$((pass_n + 1)); printf '  ok   %s\n' "$1"; }
-ko()   { fail_n=$((fail_n + 1)); printf '  ECHEC %s\n' "$1"; [ -z "${2:-}" ] || printf '        %s\n' "$2"; }
-eq()   { if [ "$2" = "$3" ]; then ok "$1"; else ko "$1" "attendu [$3] obtenu [$2]"; fi; }
-has()  { if [[ $2 == *"$3"* ]]; then ok "$1"; else ko "$1" "[$3] absent de [$2]"; fi; }
-hasnt(){ if [[ $2 != *"$3"* ]]; then ok "$1"; else ko "$1" "[$3] présent dans [$2]"; fi; }
+ko()   { fail_n=$((fail_n + 1)); printf '  FAIL %s\n' "$1"; [ -z "${2:-}" ] || printf '        %s\n' "$2"; }
+eq()   { if [ "$2" = "$3" ]; then ok "$1"; else ko "$1" "expected [$3] got [$2]"; fi; }
+has()  { if [[ $2 == *"$3"* ]]; then ok "$1"; else ko "$1" "[$3] not found in [$2]"; fi; }
+hasnt(){ if [[ $2 != *"$3"* ]]; then ok "$1"; else ko "$1" "[$3] found in [$2]"; fi; }
 
 win()   { printf '{"class":"%s","title":"%s"}\n' "$1" "$2" >"$T/win.json"; }
 vault() { printf '%s\n' "$1" >"$T/vault"; touch "$T/store/autopass/vault.gpg"; }
 reset() { : >"$T/log"; rm -f "$T/pass_fail" "$T/menu_switch" "$T/clip" "$T/wtype_fail" "$T/hist"; unset MENU_CHOICE; }
-# journal lisible : texte tapé, <tab>, <enter>, [NOTIFY ...]
+# readable log: typed text, <tab>, <enter>, [NOTIFY ...]
 typed() {
   local out="" l
   while IFS= read -r l; do
@@ -67,169 +67,169 @@ typed() {
 }
 run() { out=$("$root/autopass" "$@" 2>&1); rc=$?; }
 
-echo "== saisie de base =="
-reset; win discord "Discord"; vault 'discord;moi@ex.com;mdp1'
-run; eq "séquence par défaut" "$(typed)" 'moi@ex.com<tab>mdp1<enter>'
+echo "== basic typing =="
+reset; win discord "Discord"; vault 'discord;me@ex.com;pw1'
+run; eq "default sequence" "$(typed)" 'me@ex.com<tab>pw1<enter>'
 
 reset; vault 'discord{pass,enter};;123456'
-run; eq "séquence {pass,enter}, identifiant vide" "$(typed)" '123456<enter>'
+run; eq "sequence {pass,enter}, empty username" "$(typed)" '123456<enter>'
 
-reset; vault 'discord{ USER , Tab,pass };moi;secret'
-run; eq "espaces et casse ignorés dans la séquence" "$(typed)" 'moi<tab>secret'
+reset; vault 'discord{ USER , Tab,pass };me;secret'
+run; eq "spaces and case ignored in the sequence" "$(typed)" 'me<tab>secret'
 
-reset; vault 'discord;moi;a;b;c'
-run; eq "mot de passe contenant des ;" "$(typed)" 'moi<tab>a;b;c<enter>'
+reset; vault 'discord;me;a;b;c'
+run; eq "password containing ;" "$(typed)" 'me<tab>a;b;c<enter>'
 
-reset; vault '# commentaire
+reset; vault '# comment
 
-discord;moi;x'
-run; eq "commentaires et lignes vides ignorés" "$(typed)" 'moi<tab>x<enter>'
+discord;me;x'
+run; eq "comments and empty lines ignored" "$(typed)" 'me<tab>x<enter>'
 
-echo "== correspondance =="
+echo "== matching =="
 reset; win firefox "Sign in to GitHub — Mozilla Firefox"; vault 'sign in to github;gh;pw'
-run; eq "titre contenu, insensible à la casse" "$(typed)" 'gh<tab>pw<enter>'
+run; eq "title contained, case-insensitive" "$(typed)" 'gh<tab>pw<enter>'
 
-reset; win DISCORD "x"; vault 'discord;moi;pw'
-run; eq "classe égale, insensible à la casse" "$(typed)" 'moi<tab>pw<enter>'
+reset; win DISCORD "x"; vault 'discord;me;pw'
+run; eq "class equal, case-insensitive" "$(typed)" 'me<tab>pw<enter>'
 
-reset; win firefox "Connexion GitLab"; vault 're:^git(hub|lab)$|gitlab;gl;pw'
-run; eq "regex re: sur le titre" "$(typed)" 'gl<tab>pw<enter>'
+reset; win firefox "GitLab login"; vault 're:^git(hub|lab)$|gitlab;gl;pw'
+run; eq "re: regex on the title" "$(typed)" 'gl<tab>pw<enter>'
 
-reset; win firefox "Accueil"; vault 're:^git(hub|lab)$;gl;pw'
-run; eq "regex sans correspondance : rien tapé" "$(typed)" '[Aucune règle pour : Accueil]'
+reset; win firefox "Home"; vault 're:^git(hub|lab)$;gl;pw'
+run; eq "regex without match: nothing typed" "$(typed)" '[No rule for: Home]'
 
-reset; win kitty "Terminal"; vault 'discord;moi;pw'
-run; eq "aucune règle : rien tapé" "$(typed)" '[Aucune règle pour : Terminal]'; eq "aucune règle : code 1" "$rc" 1
+reset; win kitty "Terminal"; vault 'discord;me;pw'
+run; eq "no rule: nothing typed" "$(typed)" '[No rule for: Terminal]'; eq "no rule: exit code 1" "$rc" 1
 
-reset; win discord "x"; vault ';moi;pw
-{pass};moi;pw'
-run; eq "motif vide ne matche jamais" "$(typed)" '[Aucune règle pour : x]'
+reset; win discord "x"; vault ';me;pw
+{pass};me;pw'
+run; eq "empty pattern never matches" "$(typed)" '[No rule for: x]'
 
-reset; win discord "x"; vault 're:(;moi;pw'
-run; eq "regex invalide ignorée" "$(typed)" '[Aucune règle pour : x]'
+reset; win discord "x"; vault 're:(;me;pw'
+run; eq "invalid regex ignored" "$(typed)" '[No rule for: x]'
 
-echo "== plusieurs correspondances =="
-vault 'discord;compte1;p1
-discord;compte2;p2'
+echo "== several matches =="
+vault 'discord;account1;p1
+discord;account2;p2'
 reset; win discord "x"; export MENU_CHOICE=2
-run; eq "menu : choix 2" "$(typed)" 'compte2<tab>p2<enter>'
-has "menu : affiche les identifiants" "$(cat "$T/menu_in")" 'compte1'
-hasnt "menu : n'affiche jamais les mots de passe" "$(cat "$T/menu_in")" 'p1'
+run; eq "menu: choice 2" "$(typed)" 'account2<tab>p2<enter>'
+has "menu: shows usernames" "$(cat "$T/menu_in")" 'account1'
+hasnt "menu: never shows passwords" "$(cat "$T/menu_in")" 'p1'
 
 reset; win discord "x"
-run; eq "menu annulé : rien tapé" "$(typed)" ''; eq "menu annulé : code 0" "$rc" 0
+run; eq "menu cancelled: nothing typed" "$(typed)" ''; eq "menu cancelled: exit code 0" "$rc" 0
 
 reset; win discord "x"; export MENU_CHOICE=1
-printf '{"class":"kitty","title":"autre"}\n' >"$T/menu_switch"
-run; eq "fenêtre changée pendant le menu : rien tapé" "$(typed)" '[La fenêtre active a changé pendant le choix : rien n'"'"'a été saisi]'
+printf '{"class":"kitty","title":"other"}\n' >"$T/menu_switch"
+run; eq "window changed during the menu: nothing typed" "$(typed)" '[The active window changed during the choice: nothing was typed]'
 
-vault 'discord;moi;pw
-Discord;moi;pw'
+vault 'discord;me;pw
+Discord;me;pw'
 reset; win discord "x"
-run; eq "règles identiques : pas de menu" "$(typed)" 'moi<tab>pw<enter>'
+run; eq "identical rules: no menu" "$(typed)" 'me<tab>pw<enter>'
 
-echo "== erreurs =="
-vault 'discord{user,bidule};moi;pw'
+echo "== errors =="
+vault 'discord{user,gizmo};me;pw'
 reset; win discord "x"
-run; eq "étape inconnue : rien tapé" "$(typed)" '[Séquence invalide : {user,bidule}]'
+run; eq "unknown step: nothing typed" "$(typed)" '[Invalid sequence: {user,gizmo}]'
 
-vault 'discord{};moi;pw'
+vault 'discord{};me;pw'
 reset; win discord "x"
-run; eq "séquence vide : rien tapé" "$(typed)" '[Séquence invalide : {}]'
+run; eq "empty sequence: nothing typed" "$(typed)" '[Invalid sequence: {}]'
 
-vault 'discord;moi;pw'
+vault 'discord;me;pw'
 reset; win discord "x"; touch "$T/pass_fail"
-run; has "pass en échec : notification" "$(typed)" '[Coffre illisible'; hasnt "pass en échec : rien tapé" "$(typed)" 'moi'; eq "pass en échec : code 1" "$rc" 1
+run; has "pass failing: notification" "$(typed)" '[Vault unreadable'; hasnt "pass failing: nothing typed" "$(typed)" 'me'; eq "pass failing: exit code 1" "$rc" 1
 
 reset; win discord "x"; touch "$T/wtype_fail"
-run; has "wtype en échec : notification" "$(typed)" '[Échec de la saisie (wtype)]'
+run; has "wtype failing: notification" "$(typed)" '[Typing failed (wtype)]'
 
 reset; printf '{}\n' >"$T/win.json"
-run; has "aucune fenêtre active : notification" "$(typed)" '[Aucune fenêtre active]'
+run; has "no active window: notification" "$(typed)" '[No active window]'
 
 echo "== wait:N =="
-vault 'discord{user,wait:0.1,pass};moi;pw'
+vault 'discord{user,wait:0.1,pass};me;pw'
 reset; win discord "x"
-run; eq "wait:0.1" "$(typed)" 'moipw'
-vault 'discord{user,wait:abc,pass};moi;pw'
+run; eq "wait:0.1" "$(typed)" 'mepw'
+vault 'discord{user,wait:abc,pass};me;pw'
 reset; win discord "x"
-run; eq "wait:abc invalide" "$(typed)" '[Séquence invalide : {user,wait:abc,pass}]'
+run; eq "wait:abc invalid" "$(typed)" '[Invalid sequence: {user,wait:abc,pass}]'
 
 echo "== copy =="
-vault 'banque{copy};moi;SecretXYZ'
-reset; win banque "x"; printf 'ID1\tSecretXYZ\nID2\tautre chose\n' >"$T/hist"
-run; eq "copy : rien tapé" "$(typed | tr -d '{}')" 'SENSITIVE[Mot de passe copié, effacé dans 1 s]'
-eq "copy : presse-papier = mot de passe" "$(cat "$T/clip")" 'SecretXYZ'
+vault 'bank{copy};me;SecretXYZ'
+reset; win bank "x"; printf 'ID1\tSecretXYZ\nID2\tother thing\n' >"$T/hist"
+run; eq "copy: nothing typed" "$(typed | tr -d '{}')" 'SENSITIVE[Password copied, cleared in 1 s]'
+eq "copy: clipboard = password" "$(cat "$T/clip")" 'SecretXYZ'
 sleep 2.5
-[ ! -e "$T/clip" ] && ok "copy : presse-papier effacé après le délai" || ko "copy : presse-papier effacé après le délai"
-eq "cliphist : seule l'entrée du mot de passe supprimée" "$(cat "$T/hist")" $'ID2\tautre chose'
+[ ! -e "$T/clip" ] && ok "copy: clipboard cleared after the delay" || ko "copy: clipboard cleared after the delay"
+eq "cliphist: only the password entry removed" "$(cat "$T/hist")" $'ID2\tother thing'
 
-reset; win banque "x"; printf 'ID2\tautre chose\n' >"$T/hist"
-run; printf 'copié par moi ensuite' | { cat >"$T/clip"; }
+reset; win bank "x"; printf 'ID2\tother thing\n' >"$T/hist"
+run; printf 'copied by me afterwards' | { cat >"$T/clip"; }
 sleep 2.5
-eq "copy : contenu changé entre-temps = non touché" "$(cat "$T/clip")" 'copié par moi ensuite'
-eq "cliphist : autres entrées intactes" "$(cat "$T/hist")" $'ID2\tautre chose'
+eq "copy: content changed meanwhile = untouched" "$(cat "$T/clip")" 'copied by me afterwards'
+eq "cliphist: other entries intact" "$(cat "$T/hist")" $'ID2\tother thing'
 
-vault 'banque{pass,copy,enter};moi;SecretXYZ'
-reset; win banque "x"
-run; has "copy mélangé à la saisie" "$(typed)" 'SecretXYZ'
+vault 'bank{pass,copy,enter};me;SecretXYZ'
+reset; win bank "x"
+run; has "copy mixed with typing" "$(typed)" 'SecretXYZ'
 
 echo "== --dry-run =="
-vault 'discord;moi;MotDePasseSecret'
+vault 'discord;me;VerySecretPassword'
 reset; win discord "x"
-run --dry-run; eq "dry-run : rien tapé" "$(typed)" ''; has "dry-run : règle affichée" "$out" 'discord → moi'
-hasnt "dry-run : pas de mot de passe" "$out" 'MotDePasseSecret'; has "dry-run : saisie directe" "$out" 'saisie directe'
+run --dry-run; eq "dry-run: nothing typed" "$(typed)" ''; has "dry-run: rule shown" "$out" 'discord → me'
+hasnt "dry-run: no password" "$out" 'VerySecretPassword'; has "dry-run: direct typing" "$out" 'direct typing'
 vault 'discord;a;1
 discord;b;2'
-run --dry-run; has "dry-run : annonce le menu" "$out" 'menu de choix'
+run --dry-run; has "dry-run: announces the menu" "$out" 'choice menu'
 
 echo "== --check =="
-vault 'discord;moi;pw1
-Discord;moi;pw1
+vault 'discord;me;pw1
+Discord;me;pw1
 github{user,pass};gh;pwsecret'
-run --check; eq "check : coffre sain code 0" "$rc" 0; has "check : résumé" "$out" '3 règle(s), 0 erreur(s), 0 avertissement(s)'
+run --check; eq "check: healthy vault exit 0" "$rc" 0; has "check: summary" "$out" '3 rule(s), 0 error(s), 0 warning(s)'
 
-vault 'ligne sans separateur
-{pass};x;mdpvide
-re:(;x;mdpregex
-site{user,zzz};x;mdpseq
+vault 'line without separator
+{pass};x;pwempty
+re:(;x;pwregex
+site{user,zzz};x;pwseq
 a;x;1
 A;y;2'
-run --check; eq "check : erreurs code 1" "$rc" 1
-has "check : ligne mal formée" "$out" 'ERREUR ligne 1 : ligne mal formée'
-has "check : motif vide" "$out" 'ERREUR ligne 2 : motif vide'
-has "check : regex invalide" "$out" 'regex invalide'
-has "check : séquence invalide" "$out" 'séquence invalide {user,zzz}'
-has "check : même motif, autre compte" "$out" 'ATTENTION ligne 6'
-hasnt "check : aucun secret affiché" "$out" 'mdp'
-hasnt "check : ligne sans séparateur non recopiée" "$out" 'sans separateur'
+run --check; eq "check: errors exit 1" "$rc" 1
+has "check: malformed line" "$out" 'ERROR line 1: malformed line'
+has "check: empty pattern" "$out" 'ERROR line 2: empty pattern'
+has "check: invalid regex" "$out" 'invalid regex'
+has "check: invalid sequence" "$out" 'invalid sequence {user,zzz}'
+has "check: same pattern, other account" "$out" 'WARNING line 6'
+hasnt "check: no secret shown" "$out" 'pw'
+hasnt "check: separator-less line not echoed" "$out" 'without separator'
 
 echo "== --add =="
 rm -f "$T/store/autopass/vault.gpg"; : >"$T/vault"; reset; win discord "Discord"
-printf '1\nmoi@ex.com\nMonMdp\nMonMdp\n\n' | "$root/autopass" --add >"$T/o" 2>&1
-eq "add : coffre créé" "$(cat "$T/vault")" 'discord;moi@ex.com;MonMdp'
+printf '1\nme@ex.com\nMyPw\nMyPw\n\n' | "$root/autopass" --add >"$T/o" 2>&1
+eq "add: vault created" "$(cat "$T/vault")" 'discord;me@ex.com;MyPw'
 
 vault 'discord;a;b'; reset; win firefox "Sign in to GitHub — Mozilla Firefox"
 printf '2\ngh\nx;y\nx;y\nuser,tab,pass\n' | "$root/autopass" --add >"$T/o" 2>&1
-eq "add : titre court + séquence + ; dans le mot de passe" "$(sed -n 2p "$T/vault")" 'Sign in to GitHub{user,tab,pass};gh;x;y'
-eq "add : ancien contenu conservé" "$(sed -n 1p "$T/vault")" 'discord;a;b'
+eq "add: short title + sequence + ; in the password" "$(sed -n 2p "$T/vault")" 'Sign in to GitHub{user,tab,pass};gh;x;y'
+eq "add: previous content kept" "$(sed -n 1p "$T/vault")" 'discord;a;b'
 
 before=$(cat "$T/vault"); reset; win firefox "Sign in to GitHub"
-printf '3\nautre\nu\nm1\nm2\n\n' | "$root/autopass" --add >"$T/o" 2>&1
-eq "add : mots de passe différents : coffre intact" "$(cat "$T/vault")" "$before"
+printf '3\nother\nu\nm1\nm2\n\n' | "$root/autopass" --add >"$T/o" 2>&1
+eq "add: different passwords: vault intact" "$(cat "$T/vault")" "$before"
 
 reset; win discord "x"
-printf '1\nmoi\nm\nm\n\nn\n' | "$root/autopass" --add >"$T/o" 2>&1
-eq "add : doublon refusé : coffre intact" "$(cat "$T/vault")" "$before"
+printf '1\nme\nm\nm\n\nn\n' | "$root/autopass" --add >"$T/o" 2>&1
+eq "add: duplicate refused: vault intact" "$(cat "$T/vault")" "$before"
 
 reset; win discord "x"; touch "$T/pass_fail"
-printf '1\nmoi\nm\nm\n\n' | "$root/autopass" --add >"$T/o" 2>&1
-eq "add : coffre illisible : jamais d'écrasement" "$(cat "$T/vault")" "$before"; hasnt "add : pas d'insert" "$(cat "$T/log")" INSERT
+printf '1\nme\nm\nm\n\n' | "$root/autopass" --add >"$T/o" 2>&1
+eq "add: unreadable vault: never overwritten" "$(cat "$T/vault")" "$before"; hasnt "add: no insert" "$(cat "$T/log")" INSERT
 
 reset; win discord "x"
-printf '1\nmoi\nm\nm\nuser,nimporte\n' | "$root/autopass" --add >"$T/o" 2>&1
-eq "add : séquence invalide : coffre intact" "$(cat "$T/vault")" "$before"
+printf '1\nme\nm\nm\nuser,whatever\n' | "$root/autopass" --add >"$T/o" 2>&1
+eq "add: invalid sequence: vault intact" "$(cat "$T/vault")" "$before"
 
 echo
-printf '%d ok, %d échec(s)\n' "$pass_n" "$fail_n"
+printf '%d ok, %d failure(s)\n' "$pass_n" "$fail_n"
 [ "$fail_n" -eq 0 ]

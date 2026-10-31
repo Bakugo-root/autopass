@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
-shopt -s nocasematch   # motifs insensibles à la casse
+shopt -s nocasematch   # patterns are case-insensitive
 
-layout=${AUTOPASS_LAYOUT:-fr}               # disposition clavier pour dotool (KDE Wayland)
-clear_delay=${AUTOPASS_CLEAR_DELAY:-30}     # secondes avant effacement du mot de passe copié
-add_delay=${AUTOPASS_ADD_DELAY:-3}          # secondes pour cliquer sur la fenêtre avec --add
+layout=${AUTOPASS_LAYOUT:-fr}               # keyboard layout for dotool (KDE Wayland)
+clear_delay=${AUTOPASS_CLEAR_DELAY:-30}     # seconds before the copied password is cleared
+add_delay=${AUTOPASS_ADD_DELAY:-3}          # seconds to click on the window with --add
 default_actions="user,tab,pass,enter"
 
 usage() {
   cat <<'EOF'
-Usage : autopass [option]
-  (aucune)     saisit le compte correspondant à la fenêtre active
-  --window     affiche la classe puis le titre de la fenêtre active
-  --dry-run    montre quelle(s) règle(s) correspondent, sans rien taper
-  --check      valide le coffre (lignes, motifs, séquences), sans rien taper
-  --add        ajoute un compte au coffre à partir d'une fenêtre (depuis un terminal)
-  -h, --help   cette aide
+Usage: autopass [option]
+  (none)       types the account matching the active window
+  --window     prints the class then the title of the active window
+  --dry-run    shows which rule(s) match, without typing anything
+  --check      validates the vault (lines, patterns, sequences), without typing
+  --add        adds an account to the vault from a window (run from a terminal)
+  -h, --help   this help
 EOF
 }
 
@@ -28,11 +28,11 @@ die() {
 need() {
   local c
   for c in "$@"; do
-    command -v "$c" >/dev/null 2>&1 || die "Outil manquant : $c"
+    command -v "$c" >/dev/null 2>&1 || die "Missing tool: $c"
   done
 }
 
-# ---------- détection de l'environnement ----------
+# ---------- environment detection ----------
 detect_backend() {
   if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
     backend=hyprland
@@ -41,7 +41,7 @@ detect_backend() {
   elif [ -n "${DISPLAY:-}" ] && command -v xdotool >/dev/null 2>&1; then
     backend=x11
   else
-    die "Environnement non supporté"
+    die "Unsupported environment"
   fi
 }
 
@@ -68,49 +68,49 @@ need_clip_tools() {
   esac
 }
 
-# ---------- fenêtre active : remplit $class et $title ----------
+# ---------- active window: fills $class and $title ----------
 get_window() {
   local win id
   case $backend in
     hyprland)
-      win=$(hyprctl activewindow -j) || die "hyprctl a échoué"
-      class=$(jq -r '.class // ""' <<<"$win") || die "Fenêtre active illisible"
-      title=$(jq -r '.title // ""' <<<"$win") || die "Fenêtre active illisible"
+      win=$(hyprctl activewindow -j) || die "hyprctl failed"
+      class=$(jq -r '.class // ""' <<<"$win") || die "Cannot read the active window"
+      title=$(jq -r '.title // ""' <<<"$win") || die "Cannot read the active window"
       ;;
     kde-wayland)
-      id=$(kdotool getactivewindow) || die "Aucune fenêtre active"
-      class=$(kdotool getwindowclassname "$id") || die "Classe de fenêtre introuvable"
-      title=$(kdotool getwindowname "$id") || die "Titre de fenêtre introuvable"
+      id=$(kdotool getactivewindow) || die "No active window"
+      class=$(kdotool getwindowclassname "$id") || die "Window class not found"
+      title=$(kdotool getwindowname "$id") || die "Window title not found"
       ;;
     x11)
-      id=$(xdotool getactivewindow) || die "Aucune fenêtre active"
-      title=$(xdotool getwindowname "$id") || die "Titre de fenêtre introuvable"
-      class=$(xprop -id "$id" WM_CLASS | awk -F'"' '{print $4}') || die "Classe de fenêtre introuvable"
+      id=$(xdotool getactivewindow) || die "No active window"
+      title=$(xdotool getwindowname "$id") || die "Window title not found"
+      class=$(xprop -id "$id" WM_CLASS | awk -F'"' '{print $4}') || die "Window class not found"
       ;;
   esac
-  [ -n "$class$title" ] || die "Aucune fenêtre active"
+  [ -n "$class$title" ] || die "No active window"
 }
 
-# titre court : sans suffixe navigateur (après " — "), après le dernier "| "
+# short title: without the browser suffix (after " — "), after the last "| "
 short_title() {
   local t=${1% — *}
   printf '%s' "${t##*| }"
 }
 
-# ---------- saisie ----------
+# ---------- typing ----------
 type_text() {
   local s=$1 i
   case $backend in
     hyprland)
       for ((i = 0; i < ${#s}; i++)); do
-        printf '%s' "${s:i:1}" | wtype - || die "Échec de la saisie (wtype)"
+        printf '%s' "${s:i:1}" | wtype - || die "Typing failed (wtype)"
       done
       ;;
     kde-wayland)
-      printf 'type %s\n' "$s" | DOTOOL_XKB_LAYOUT=$layout dotool || die "Échec de la saisie (dotool)"
+      printf 'type %s\n' "$s" | DOTOOL_XKB_LAYOUT=$layout dotool || die "Typing failed (dotool)"
       ;;
     x11)
-      printf '%s' "$s" | xdotool type --clearmodifiers --file - || die "Échec de la saisie (xdotool)"
+      printf '%s' "$s" | xdotool type --clearmodifiers --file - || die "Typing failed (xdotool)"
       ;;
   esac
 }
@@ -118,15 +118,15 @@ type_text() {
 press() {   # $1 = tab | enter
   case $backend in
     hyprland)
-      case $1 in tab) wtype -k Tab ;; enter) wtype -k Return ;; esac || die "Échec de la saisie (wtype)" ;;
+      case $1 in tab) wtype -k Tab ;; enter) wtype -k Return ;; esac || die "Typing failed (wtype)" ;;
     kde-wayland)
-      printf 'key %s\n' "$1" | DOTOOL_XKB_LAYOUT=$layout dotool || die "Échec de la saisie (dotool)" ;;
+      printf 'key %s\n' "$1" | DOTOOL_XKB_LAYOUT=$layout dotool || die "Typing failed (dotool)" ;;
     x11)
-      case $1 in tab) xdotool key Tab ;; enter) xdotool key Return ;; esac || die "Échec de la saisie (xdotool)" ;;
+      case $1 in tab) xdotool key Tab ;; enter) xdotool key Return ;; esac || die "Typing failed (xdotool)" ;;
   esac
 }
 
-# ---------- presse-papier (étape copy) ----------
+# ---------- clipboard (copy step) ----------
 clip_set() {
   case $backend in
     x11) printf '%s' "$1" | xclip -selection clipboard ;;
@@ -148,7 +148,7 @@ clip_clear() {
   esac
 }
 
-# retire de l'historique cliphist l'entrée égale au mot de passe (et seulement elle)
+# removes from the cliphist history the entry equal to the password (and only that one)
 forget_history() {
   local lines
   command -v cliphist >/dev/null 2>&1 || return 0
@@ -163,19 +163,19 @@ forget_history() {
 
 copy_secret() {
   local s=$1
-  [ -n "$s" ] || die "Mot de passe vide : rien à copier"
-  clip_set "$s" || die "Échec de la copie dans le presse-papier"
-  # effacement différé : seulement si le presse-papier contient encore ce mot de passe
+  [ -n "$s" ] || die "Empty password: nothing to copy"
+  clip_set "$s" || die "Copying to the clipboard failed"
+  # delayed clear: only if the clipboard still holds this password
   (
     sleep "$clear_delay"
     if [ "$(clip_get || true)" = "$s" ]; then clip_clear || true; fi
     forget_history "$s"
   ) </dev/null >/dev/null 2>&1 &
   disown
-  notify-send autopass "Mot de passe copié, effacé dans ${clear_delay} s" 2>/dev/null || true
+  notify-send autopass "Password copied, cleared in ${clear_delay} s" 2>/dev/null || true
 }
 
-# ---------- séquence de touches ----------
+# ---------- key sequence ----------
 step_ok() {
   case $1 in
     user|pass|tab|enter|wait|copy) return 0 ;;
@@ -184,7 +184,7 @@ step_ok() {
   esac
 }
 
-# vérifie les étapes AVANT de taper quoi que ce soit
+# checks the steps BEFORE typing anything
 check_steps() {
   local step
   [ "$#" -gt 0 ] || return 1
@@ -207,13 +207,13 @@ run_steps() {
   done
 }
 
-# ---------- coffre ----------
+# ---------- vault ----------
 load_vault() {
   vault=$(pass show autopass/vault) \
-    || die "Coffre illisible (passphrase GPG annulée ou autopass/vault absent)"
+    || die "Vault unreadable (GPG passphrase cancelled or autopass/vault missing)"
 }
 
-# remplit les tableaux r_* (une case par règle) à partir de $vault
+# fills the r_* arrays (one slot per rule) from $vault
 parse_vault() {
   r_pat=(); r_user=(); r_pw=(); r_seq=(); r_seqok=(); r_line=(); r_err=()
   local n=0 line pattern rest u p seq err rc re st
@@ -222,12 +222,12 @@ parse_vault() {
     case $line in ''|'#'*) continue ;; esac
     err=""; seq=$default_actions
     if [[ $line != *';'*';'* ]]; then
-      err="ligne mal formée (attendu : motif;identifiant;mot_de_passe)"
+      err="malformed line (expected: pattern;username;password)"
       pattern=""; u=""; p=""
     else
       pattern=${line%%;*}; rest=${line#*;}; u=${rest%%;*}; p=${rest#*;}
     fi
-    # motif{étape,étape,...} : la séquence est après le dernier '{'
+    # pattern{step,step,...}: the sequence is after the last '{'
     if [[ $pattern == *'{'*'}' ]]; then
       seq=${pattern##*\{}
       seq=${seq%\}}
@@ -235,15 +235,15 @@ parse_vault() {
     fi
     seq=${seq//[[:space:]]/}
     seq=${seq,,}
-    if [ -z "$err" ] && [ -z "$pattern" ]; then err="motif vide"; fi
+    if [ -z "$err" ] && [ -z "$pattern" ]; then err="empty pattern"; fi
     if [ -z "$err" ] && [[ $pattern == re:* ]]; then
       re=${pattern#re:}
       if [ -z "$re" ]; then
-        err="regex vide"
+        err="empty regex"
       else
         rc=0
         [[ "" =~ $re ]] || rc=$?
-        if [ "$rc" -eq 2 ]; then err="regex invalide"; fi
+        if [ "$rc" -eq 2 ]; then err="invalid regex"; fi
       fi
     fi
     IFS=',' read -ra st <<<"$seq" || true
@@ -253,8 +253,8 @@ parse_vault() {
   done <<<"$vault"
 }
 
-# la règle (motif) correspond-elle à la fenêtre active ?
-# motif simple : égal à la classe, ou contenu dans le titre. "re:..." : regex sur la classe ou le titre.
+# does the rule (pattern) match the active window?
+# plain pattern: equal to the class, or contained in the title. "re:...": regex on the class or title.
 rule_matches() {
   local p=$1 re
   if [[ $p == re:* ]]; then
@@ -265,7 +265,7 @@ rule_matches() {
   fi
 }
 
-# remplit le tableau matches avec les index des règles qui correspondent
+# fills the matches array with the indexes of the matching rules
 find_matches() {
   local i
   matches=()
@@ -274,7 +274,7 @@ find_matches() {
   done
 }
 
-# toutes les règles trouvées donnent-elles exactement le même compte et la même séquence ?
+# do all matching rules give exactly the same account and sequence?
 matches_identical() {
   local i f=${matches[0]}
   for i in "${matches[@]}"; do
@@ -282,7 +282,7 @@ matches_identical() {
   done
 }
 
-# menu de choix quand plusieurs comptes correspondent : remplit $sel, ou quitte sans rien taper
+# choice menu when several accounts match: fills $sel, or exits without typing
 pick_menu() {
   local m=${AUTOPASS_MENU:-} c i k out
   local -a cmd
@@ -291,20 +291,20 @@ pick_menu() {
       if command -v "${c%% *}" >/dev/null 2>&1; then m=$c; break; fi
     done
   fi
-  [ -n "$m" ] || die "Plusieurs règles correspondent mais aucun menu (fuzzel, wofi, rofi, bemenu, tofi) : rien n'a été saisi"
+  [ -n "$m" ] || die "Several rules match but no menu is installed (fuzzel, wofi, rofi, bemenu, tofi): nothing was typed"
   read -ra cmd <<<"$m"
   out=$(
     for k in "${!matches[@]}"; do
       i=${matches[k]}
       printf '%d) %s — %s\n' "$((k + 1))" "${r_pat[i]}" "${r_user[i]}"
     done | "${cmd[@]}"
-  ) || exit 0   # menu annulé : on ne tape rien
+  ) || exit 0   # menu cancelled: type nothing
   k=${out%%')'*}
   if ! [[ $k =~ ^[0-9]+$ ]] || [ "$k" -lt 1 ] || [ "$k" -gt "${#matches[@]}" ]; then exit 0; fi
   sel=${matches[k - 1]}
 }
 
-# ---------- commandes ----------
+# ---------- commands ----------
 cmd_window() {
   detect_backend
   need_window_tools
@@ -320,28 +320,28 @@ cmd_check() {
   for i in "${!r_pat[@]}"; do
     if [ -n "${r_err[i]}" ]; then
       if [ -n "${r_pat[i]}" ]; then
-        printf 'ERREUR ligne %s (%s) : %s\n' "${r_line[i]}" "${r_pat[i]}" "${r_err[i]}"
+        printf 'ERROR line %s (%s): %s\n' "${r_line[i]}" "${r_pat[i]}" "${r_err[i]}"
       else
-        printf 'ERREUR ligne %s : %s\n' "${r_line[i]}" "${r_err[i]}"
+        printf 'ERROR line %s: %s\n' "${r_line[i]}" "${r_err[i]}"
       fi
       errs=$((errs + 1))
       continue
     fi
     if [ "${r_seqok[i]}" -ne 1 ]; then
-      printf 'ERREUR ligne %s (%s) : séquence invalide {%s}\n' "${r_line[i]}" "${r_pat[i]}" "${r_seq[i]}"
+      printf 'ERROR line %s (%s): invalid sequence {%s}\n' "${r_line[i]}" "${r_pat[i]}" "${r_seq[i]}"
       errs=$((errs + 1))
     fi
     for ((j = 0; j < i; j++)); do
       [ -z "${r_err[j]}" ] || continue
       if [[ ${r_pat[i]} == "${r_pat[j]}" ]] && [ "${r_user[i]}|${r_pw[i]}|${r_seq[i]}" != "${r_user[j]}|${r_pw[j]}|${r_seq[j]}" ]; then
-        printf 'ATTENTION ligne %s (%s) : même motif que la ligne %s avec un autre compte (un menu s'"'"'affichera)\n' \
+        printf 'WARNING line %s (%s): same pattern as line %s with a different account (a menu will be shown)\n' \
           "${r_line[i]}" "${r_pat[i]}" "${r_line[j]}"
         warns=$((warns + 1))
         break
       fi
     done
   done
-  printf '%d règle(s), %d erreur(s), %d avertissement(s)\n' "${#r_pat[@]}" "$errs" "$warns"
+  printf '%d rule(s), %d error(s), %d warning(s)\n' "${#r_pat[@]}" "$errs" "$warns"
   [ "$errs" -eq 0 ]
 }
 
@@ -352,41 +352,41 @@ cmd_add() {
   need pass
   detect_backend
   need_window_tools
-  printf 'Cliquez sur la fenêtre à enregistrer : capture dans %s s…\n' "$add_delay" >&2
+  printf 'Click on the window to record: capture in %s s…\n' "$add_delay" >&2
   sleep "$add_delay"
   get_window
-  notify-send autopass "Fenêtre capturée : revenez au terminal" 2>/dev/null || true
+  notify-send autopass "Window captured: go back to the terminal" 2>/dev/null || true
   st=$(short_title "$title")
-  printf 'Fenêtre : classe = %s | titre = %s\n' "$class" "$title" >&2
-  printf 'Motif :\n  1) classe : %s\n  2) titre court : %s\n  3) saisie libre\n' "$class" "$st" >&2
-  printf 'Choix [1] : ' >&2
-  IFS= read -r choice || die "Entrée interrompue"
+  printf 'Window: class = %s | title = %s\n' "$class" "$title" >&2
+  printf 'Pattern:\n  1) class: %s\n  2) short title: %s\n  3) free input\n' "$class" "$st" >&2
+  printf 'Choice [1]: ' >&2
+  IFS= read -r choice || die "Input interrupted"
   case ${choice:-1} in
     1) pattern=$class ;;
     2) pattern=$st ;;
-    3) printf 'Motif : ' >&2; IFS= read -r pattern || die "Entrée interrompue" ;;
-    *) die "Choix invalide" ;;
+    3) printf 'Pattern: ' >&2; IFS= read -r pattern || die "Input interrupted" ;;
+    *) die "Invalid choice" ;;
   esac
-  [ -n "$pattern" ] || die "Motif vide"
-  [[ $pattern != *';'* ]] || die "Le motif ne peut pas contenir ';'"
-  printf 'Identifiant : ' >&2
-  IFS= read -r user || die "Entrée interrompue"
-  [[ $user != *';'* ]] || die "L'identifiant ne peut pas contenir ';'"
-  printf 'Mot de passe : ' >&2
-  IFS= read -rs pw || die "Entrée interrompue"; printf '\n' >&2
-  printf 'Confirmer : ' >&2
-  IFS= read -rs pw2 || die "Entrée interrompue"; printf '\n' >&2
-  [ -n "$pw" ] || die "Mot de passe vide"
-  [ "$pw" = "$pw2" ] || die "Les deux mots de passe diffèrent : rien n'a été ajouté"
-  printf 'Séquence [%s] (Entrée = défaut) : ' "$default_actions" >&2
-  IFS= read -r seq || die "Entrée interrompue"
+  [ -n "$pattern" ] || die "Empty pattern"
+  [[ $pattern != *';'* ]] || die "The pattern cannot contain ';'"
+  printf 'Username: ' >&2
+  IFS= read -r user || die "Input interrupted"
+  [[ $user != *';'* ]] || die "The username cannot contain ';'"
+  printf 'Password: ' >&2
+  IFS= read -rs pw || die "Input interrupted"; printf '\n' >&2
+  printf 'Confirm: ' >&2
+  IFS= read -rs pw2 || die "Input interrupted"; printf '\n' >&2
+  [ -n "$pw" ] || die "Empty password"
+  [ "$pw" = "$pw2" ] || die "The two passwords differ: nothing was added"
+  printf 'Sequence [%s] (Enter = default): ' "$default_actions" >&2
+  IFS= read -r seq || die "Input interrupted"
   seq=${seq//[[:space:]]/}
   seq=${seq,,}
   if [ -n "$seq" ]; then
     IFS=',' read -ra steps <<<"$seq" || true
-    if [ "${#steps[@]}" -eq 0 ] || ! check_steps "${steps[@]}"; then die "Séquence invalide : {$seq}"; fi
+    if [ "${#steps[@]}" -eq 0 ] || ! check_steps "${steps[@]}"; then die "Invalid sequence: {$seq}"; fi
   elif [[ $pattern == *'}' ]]; then
-    seq=$default_actions   # un motif finissant par } exige une séquence explicite
+    seq=$default_actions   # a pattern ending with } requires an explicit sequence
   fi
   entry=$pattern
   if [ -n "$seq" ]; then entry="$pattern{$seq}"; fi
@@ -394,23 +394,23 @@ cmd_add() {
 
   vault=""
   if [ -f "$store_dir/autopass/vault.gpg" ]; then
-    load_vault   # échec = on s'arrête : jamais d'écrasement du coffre existant
+    load_vault   # failure = stop: never overwrite an existing vault
     parse_vault
     for i in "${!r_pat[@]}"; do
       if [[ ${r_pat[i]} == "$pattern" ]]; then dup=${r_line[i]}; break; fi
     done
   fi
   if [ -n "$dup" ]; then
-    printf 'Une règle existe déjà pour ce motif (ligne %s). Ajouter quand même ? [o/N] ' "$dup" >&2
+    printf 'A rule already exists for this pattern (line %s). Add anyway? [y/N] ' "$dup" >&2
     IFS= read -r ans || ans=n
-    [[ $ans == [oOyY]* ]] || { printf 'Annulé.\n' >&2; exit 0; }
+    [[ $ans == [yY]* ]] || { printf 'Cancelled.\n' >&2; exit 0; }
   fi
   if [ -n "$vault" ]; then vault=$vault$'\n'$entry; else vault=$entry; fi
-  printf '%s\n' "$vault" | pass insert -m -f autopass/vault >/dev/null || die "Échec de l'écriture du coffre"
-  printf 'Ajouté : %s → %s\n' "$pattern" "$user"
+  printf '%s\n' "$vault" | pass insert -m -f autopass/vault >/dev/null || die "Writing the vault failed"
+  printf 'Added: %s → %s\n' "$pattern" "$user"
 }
 
-# saisie / dry-run : $1 = dry (1) ou non (0)
+# typing / dry-run: $1 = dry (1) or not (0)
 cmd_type() {
   local dry=$1 i k short old_class old_title
   local -a steps
@@ -426,23 +426,23 @@ cmd_type() {
   if [ "${#matches[@]}" -eq 0 ]; then
     short=$(short_title "$title")
     if [ "$dry" -eq 1 ]; then
-      printf 'Aucune règle pour : %s\n' "${short:-$class}"
+      printf 'No rule for: %s\n' "${short:-$class}"
       exit 1
     fi
-    die "Aucune règle pour : ${short:-$class}"
+    die "No rule for: ${short:-$class}"
   fi
 
   if [ "$dry" -eq 1 ]; then
-    printf 'Fenêtre : classe = %s | titre = %s\n' "$class" "$title"
+    printf 'Window: class = %s | title = %s\n' "$class" "$title"
     for k in "${!matches[@]}"; do
       i=${matches[k]}
-      printf 'Règle ligne %s : %s → %s  {%s}%s\n' "${r_line[i]}" "${r_pat[i]}" "${r_user[i]}" "${r_seq[i]}" \
-        "$([ "${r_seqok[i]}" -eq 1 ] || printf '  (SÉQUENCE INVALIDE)')"
+      printf 'Rule line %s: %s → %s  {%s}%s\n' "${r_line[i]}" "${r_pat[i]}" "${r_user[i]}" "${r_seq[i]}" \
+        "$([ "${r_seqok[i]}" -eq 1 ] || printf '  (INVALID SEQUENCE)')"
     done
     if [ "${#matches[@]}" -eq 1 ] || matches_identical; then
-      printf 'Résultat : saisie directe\n'
+      printf 'Result: direct typing\n'
     else
-      printf 'Résultat : menu de choix (plusieurs comptes différents)\n'
+      printf 'Result: choice menu (several different accounts)\n'
     fi
     exit 0
   fi
@@ -451,16 +451,16 @@ cmd_type() {
     sel=${matches[0]}
   else
     pick_menu
-    # le menu a pu changer le focus : on ne tape que si la fenêtre est la même
+    # the menu may have changed the focus: only type if the window is the same
     old_class=$class; old_title=$title
     get_window
     if [ "$class" != "$old_class" ] || [ "$title" != "$old_title" ]; then
-      die "La fenêtre active a changé pendant le choix : rien n'a été saisi"
+      die "The active window changed during the choice: nothing was typed"
     fi
   fi
 
   user=${r_user[sel]}; pw=${r_pw[sel]}
-  [ "${r_seqok[sel]}" -eq 1 ] || die "Séquence invalide : {${r_seq[sel]}}"
+  [ "${r_seqok[sel]}" -eq 1 ] || die "Invalid sequence: {${r_seq[sel]}}"
   IFS=',' read -ra steps <<<"${r_seq[sel]}"
   for k in "${steps[@]}"; do
     case $k in

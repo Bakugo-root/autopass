@@ -1,219 +1,219 @@
 # autop@ss
 
-Auto-saisie d'identifiant et de mot de passe pour Linux, basée sur `pass` (GPG).
-Raccourci clavier -> fenêtre active -> ligne du coffre -> identifiant, Tab, mot de passe, Entrée (séquence modifiable par compte).
-Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
+Auto-type your username and password on Linux, built on `pass` (GPG).
+Keyboard shortcut -> active window -> vault line -> username, Tab, password, Enter (sequence customizable per account).
+Nothing runs permanently: the script starts at the shortcut, then exits.
 
-Ce dépôt suppose que vous savez utiliser `pass` et GPG. Sinon, commencer par leur documentation (section « Documentation officielle » en bas).
+This repository assumes you know how to use `pass` and GPG. If not, start with their documentation (see "Official documentation" at the bottom).
 
-## Pourquoi autopass
+## Why autop@ss
 
-- **Souveraineté** : vos mots de passe restent sur votre machine, chiffrés avec votre clé GPG. Pas de compte, pas de serveur, pas de datacenter : il n'y a personne à qui faire confiance.
-- **Léger** : rien ne tourne en arrière-plan. Le script démarre au raccourci clavier, fait son travail puis s'arrête.
-- **Un seul endroit** : un mot de passe change dans le coffre, et tous les raccourcis le prennent en compte. Plus de mot de passe réutilisé pour s'en souvenir, et plus besoin d'aller le lire : il n'est jamais affiché.
-- **Marche partout** : applications natives, navigateurs, toute fenêtre avec un champ texte. Pas d'extension à installer par navigateur, donc pas de code tiers qui lit vos pages.
-- **Ne touche pas au presse-papier** (sauf si vous choisissez l'étape optionnelle `copy`) : votre contenu copié n'est pas écrasé, et aucun historique de presse-papier ne garde le mot de passe.
-- **Discret** : le mot de passe n'est jamais affiché à l'écran, jamais visible dans `ps`, jamais écrit en clair sur disque.
-- **Pas de cryptographie maison** : tout le chiffrement est fait par GPG. Le script relie seulement la fenêtre active à une ligne du coffre.
-- **Lisible et vérifiable** : un seul script bash, relisible en quelques minutes.
-- **Coffre simple** : une ligne par compte dans un seul fichier chiffré, facile à éditer et à sauvegarder.
-- **Hors ligne** : aucun abonnement, aucun compte, aucune connexion nécessaire.
-- **Multi-bureaux** : Hyprland et KDE Wayland (testés), X11 (non testé).
+- **Sovereignty**: your passwords stay on your machine, encrypted with your GPG key. No account, no server, no datacenter: there is nobody to trust.
+- **Lightweight**: nothing runs in the background. The script starts at the keyboard shortcut, does its job, then exits.
+- **One place**: a password changes in the vault and every shortcut picks it up. No more reusing a password to remember it, and no need to read it either: it is never displayed.
+- **Works everywhere**: native apps, browsers, any window with a text field. No browser extension to install, so no third-party code reading your pages.
+- **Does not touch the clipboard** (unless you choose the optional `copy` step): your copied content is not overwritten, and no clipboard history keeps the password.
+- **Discreet**: the password is never displayed on screen, never visible in `ps`, never written in clear text to disk.
+- **No homemade cryptography**: all encryption is done by GPG. The script only links the active window to a vault line.
+- **Readable and verifiable**: a single bash script, reviewable in a few minutes.
+- **Simple vault**: one line per account in a single encrypted file, easy to edit and back up.
+- **Offline**: no subscription, no account, no connection needed.
+- **Multi-desktop**: Hyprland and KDE Wayland (tested), X11 (untested).
 
-## Environnements supportés
+## Supported environments
 
-| Environnement | Détection fenêtre | Saisie | Statut |
+| Environment | Window detection | Typing | Status |
 |---|---|---|---|
-| Hyprland (Wayland) | `hyprctl` + `jq` | `wtype` | testé |
-| KDE Plasma (Wayland) | `kdotool` | `dotool` | testé |
-| X11 (tout bureau) | `xdotool` + `xprop` | `xdotool` | non testé |
+| Hyprland (Wayland) | `hyprctl` + `jq` | `wtype` | tested |
+| KDE Plasma (Wayland) | `kdotool` | `dotool` | tested |
+| X11 (any desktop) | `xdotool` + `xprop` | `xdotool` | untested |
 
-L'environnement est détecté automatiquement.
+The environment is detected automatically.
 
-## Dépendances
-- Toujours : `git pass gnupg libnotify`
-- Hyprland : `wtype jq`
-- KDE Wayland : `kdotool` et `dotool` (AUR). La disposition clavier se règle avec `AUTOPASS_LAYOUT` (`fr` par défaut).
-- X11 : `xdotool xorg-xprop`
-- Optionnel :
-  - un menu (`fuzzel`, `wofi`, `rofi`, `bemenu` ou `tofi`, détecté automatiquement, ou `AUTOPASS_MENU="commande args"`) pour choisir quand plusieurs comptes correspondent ;
-  - `wl-clipboard` (Wayland) ou `xclip` (X11) pour l'étape `copy`.
+## Dependencies
+- Always: `git pass gnupg libnotify`
+- Hyprland: `wtype jq`
+- KDE Wayland: `kdotool` and `dotool` (AUR). The keyboard layout is set with `AUTOPASS_LAYOUT` (`fr` by default).
+- X11: `xdotool xorg-xprop`
+- Optional:
+  - a menu (`fuzzel`, `wofi`, `rofi`, `bemenu` or `tofi`, detected automatically, or `AUTOPASS_MENU="command args"`) to choose when several accounts match;
+  - `wl-clipboard` (Wayland) or `xclip` (X11) for the `copy` step.
 
 ## Installation
 
-1. Installer les outils (exemple Hyprland)
+1. Install the tools (Hyprland example)
 
         sudo pacman -S git pass gnupg libnotify wtype jq
 
-   Exemple KDE Wayland :
+   KDE Wayland example:
 
         sudo pacman -S git pass gnupg libnotify
         paru -S kdotool dotool
 
-2. Récupérer le code
+2. Get the code
 
         git clone https://github.com/Bakugo-root/autopass.git ~/autopass
 
-3. Créer sa clé GPG et initialiser le coffre `pass`. Chaque personne a sa clé et sa passphrase :
+3. Create your GPG key and initialize the `pass` vault. Everyone has their own key and passphrase:
 
         gpg --full-generate-key
-        pass init SON_ID_GPG
+        pass init YOUR_GPG_ID
 
-   Les détails (choix de la clé, passphrase, `pass init`) sont dans la documentation de `pass` et de GPG, liée plus bas.
+   Details (key choice, passphrase, `pass init`) are in the `pass` and GPG documentation linked below.
 
-4. Installer le script
+4. Install the script
 
         mkdir -p ~/.local/bin
         ln -sf ~/autopass/autopass ~/.local/bin/autopass
 
-   `ln -sf` crée un **lien symbolique** : `~/.local/bin/autopass` n'est pas une copie, c'est un raccourci vers `~/autopass/autopass`.
-   - Un seul fichier réel : après un `git pull`, le raccourci clavier utilise tout de suite la nouvelle version.
-   - `-s` demande un lien symbolique, `-f` remplace le lien s'il existe déjà.
-   - Vérifier : `ls -l ~/.local/bin/autopass` doit afficher une flèche `->` vers `~/autopass/autopass`.
-   - Si le dépôt est déplacé ou supprimé, le lien est cassé : refaire la commande avec le nouveau chemin.
-   - Pour lancer `autopass` depuis un terminal (par exemple `autopass --window`), `~/.local/bin` doit être dans le `PATH`.
-     En cas de « command not found » : `fish_add_path ~/.local/bin` sous fish, ou `export PATH="$HOME/.local/bin:$PATH"` dans `~/.bashrc` sous bash.
-     Le raccourci clavier utilise le chemin complet et n'en a pas besoin.
+   `ln -sf` creates a **symbolic link**: `~/.local/bin/autopass` is not a copy, it is a shortcut to `~/autopass/autopass`.
+   - Only one real file: after a `git pull`, the keyboard shortcut immediately uses the new version.
+   - `-s` asks for a symbolic link, `-f` replaces the link if it already exists.
+   - Check: `ls -l ~/.local/bin/autopass` must show an arrow `->` to `~/autopass/autopass`.
+   - If the repository is moved or deleted, the link breaks: run the command again with the new path.
+   - To run `autopass` from a terminal (for example `autopass --window`), `~/.local/bin` must be in your `PATH`.
+     On "command not found": `fish_add_path ~/.local/bin` in fish, or `export PATH="$HOME/.local/bin:$PATH"` in `~/.bashrc` in bash.
+     The keyboard shortcut uses the full path and does not need it.
 
-5. Créer le raccourci clavier. La combinaison est libre : `SUPER+P` et `Ctrl+Alt+A` ne sont que des exemples.
-   - Hyprland, dans la config (puis `hyprctl reload`) :
+5. Create the keyboard shortcut. The combination is up to you: `SUPER+P` and `Ctrl+Alt+A` are only examples.
+   - Hyprland, in the config (then `hyprctl reload`):
 
          bind = SUPER, P, exec, ~/.local/bin/autopass
 
-   - KDE : Paramètres système -> Clavier -> Raccourcis -> ajouter une commande `~/.local/bin/autopass`, avec la combinaison de votre choix (par exemple `Ctrl+Alt+A`).
+   - KDE: System Settings -> Keyboard -> Shortcuts -> add a command `~/.local/bin/autopass`, with the combination of your choice (for example `Ctrl+Alt+A`).
 
-## Le coffre
+## The vault
 
-Une seule entrée chiffrée, une ligne par compte, au format `motif;identifiant;mot_de_passe` :
+A single encrypted entry, one line per account, in the format `pattern;username;password`:
 
     env EDITOR=nano pass edit autopass/vault
 
-Exemples:
+Examples:
 
-    discord;moi@example.com;motdepasse1
-    Discord;moi@example.com;motdepasse1
-    Sign in to GitHub;mon_pseudo;motdepasse2
+    discord;me@example.com;password1
+    Discord;me@example.com;password1
+    Sign in to GitHub;my_nickname;password2
 
-- Le motif est comparé à la **classe** de la fenêtre (égalité), sinon à son **titre** (le motif y est contenu). La casse est ignorée (`discord` et `Discord` sont équivalents).
-- Une application native a une classe (`discord`), un site dans Firefox se reconnaît à son titre (`Discord`).
-- Un motif qui commence par `re:` est une **expression régulière** testée sur la classe et sur le titre : `re:^(GitHub|GitLab)`. Un `;` ne peut pas y figurer, et une regex qui finit par `}` doit recevoir une séquence explicite.
-- **Une correspondance incertaine ne tape rien.** Si plusieurs lignes correspondent avec des comptes différents, un menu te demande lequel choisir (Échap : rien n'est tapé). Si la fenêtre change pendant le choix, rien n'est tapé non plus. Plusieurs lignes qui donnent exactement le même compte ne déclenchent pas de menu. Aucune ligne : notification « Aucune règle », rien n'est tapé.
-- Les lignes vides et celles qui commencent par `#` sont ignorées.
-- Le mot de passe est tout ce qui suit le 2e `;` (il peut contenir des `;`). Le motif et l'identifiant ne doivent pas en contenir.
+- The pattern is compared to the window **class** (equality), otherwise to its **title** (the pattern is contained in it). Case is ignored (`discord` and `Discord` are equivalent).
+- A native application has a class (`discord`), a website in Firefox is recognized by its title (`Discord`).
+- A pattern starting with `re:` is a **regular expression** tested on the class and on the title: `re:^(GitHub|GitLab)`. It cannot contain a `;`, and a regex ending with `}` needs an explicit sequence.
+- **An uncertain match types nothing.** If several lines match with different accounts, a menu asks which one to use (Esc: nothing is typed). If the window changes during the choice, nothing is typed either. Several lines giving exactly the same account do not trigger a menu. No matching line: "No rule for" notification, nothing is typed.
+- Empty lines and lines starting with `#` are ignored.
+- The password is everything after the 2nd `;` (it may contain `;`). The pattern and the username must not contain any.
 
-### Séquence de saisie par compte
+### Typing sequence per account
 
-Par défaut, autopass tape : identifiant, Tab, mot de passe, Entrée. Pour changer ça sur un compte, ajouter la séquence entre accolades **à la fin du motif** :
+By default, autopass types: username, Tab, password, Enter. To change that for an account, add the sequence in braces **at the end of the pattern**:
 
-    motif{étape,étape,...};identifiant;mot_de_passe
+    pattern{step,step,...};username;password
 
-Étapes possibles :
+Available steps:
 
-| Étape | Effet |
+| Step | Effect |
 |---|---|
-| `user` | tape l'identifiant |
-| `pass` | tape le mot de passe |
-| `tab` | appuie sur Tab |
-| `enter` | appuie sur Entrée |
-| `wait` | pause d'une seconde (page qui charge entre deux étapes) |
-| `wait:N` | pause de N secondes, décimales permises : `wait:2.5` |
-| `copy` | copie le mot de passe dans le presse-papier (voir ci-dessous) |
+| `user` | types the username |
+| `pass` | types the password |
+| `tab` | presses Tab |
+| `enter` | presses Enter |
+| `wait` | pauses for one second (page loading between two steps) |
+| `wait:N` | pauses for N seconds, decimals allowed: `wait:2.5` |
+| `copy` | copies the password to the clipboard (see below) |
 
-Exemples :
+Examples:
 
-    discord;moi@example.com;motdepasse1                      # défaut : user,tab,pass,enter
-    google{user,enter,wait,pass,enter};moi@example.com;mdp3  # identifiant et mot de passe sur deux pages
-    banque{pass,enter};;123456                               # seulement le mot de passe (identifiant vide)
-    site{user,tab,pass};moi;mdp4                             # remplit sans valider
-    appli{user,tab,wait:2.5,pass,enter};moi;mdp5             # pause de 2,5 s au milieu
-    champ_rebelle{user,copy};moi;mdp6                        # tape l'identifiant, copie le mot de passe
+    discord;me@example.com;password1                          # default: user,tab,pass,enter
+    google{user,enter,wait,pass,enter};me@example.com;pw3     # username and password on two pages
+    bank{pass,enter};;123456                                  # password only (empty username)
+    site{user,tab,pass};me;pw4                                # fills in without submitting
+    app{user,tab,wait:2.5,pass,enter};me;pw5                  # 2.5 s pause in the middle
+    stubborn_field{user,copy};me;pw6                          # types the username, copies the password
 
-- Les espaces et la casse sont ignorés dans la séquence (`{ pass , ENTER }` fonctionne).
-- La séquence est vérifiée **avant** de taper : une étape inconnue ou une séquence vide donne une notification « Séquence invalide » et rien n'est saisi.
-- Les accolades ne servent pas à la comparaison : seul ce qui précède le dernier `{` est le motif.
-- Un motif qui se termine lui-même par `}` doit recevoir une séquence explicite, par exemple `Titre {spécial}{user,tab,pass,enter}`.
+- Spaces and case are ignored in the sequence (`{ pass , ENTER }` works).
+- The sequence is checked **before** typing: an unknown step or an empty sequence gives an "Invalid sequence" notification and nothing is typed.
+- Braces are not used for matching: only what comes before the last `{` is the pattern.
+- A pattern that itself ends with `}` must get an explicit sequence, for example `Title {special}{user,tab,pass,enter}`.
 
-### Étape `copy` : mot de passe dans le presse-papier
+### The `copy` step: password in the clipboard
 
-Pour les champs où la saisie automatique échoue. Le mot de passe est copié (avec l'indication « sensible » sous Wayland), puis **effacé après 30 s** (`AUTOPASS_CLEAR_DELAY`, en secondes).
-- Seule la ligne copiée par autopass est effacée : si tu as copié autre chose entre-temps, le presse-papier n'est pas touché.
-- Si `cliphist` est installé, l'entrée correspondant à ce mot de passe en est retirée, et uniquement elle.
-- Un processus en arrière-plan reste donc actif jusqu'à l'effacement (30 s), seulement quand `copy` est utilisé.
-- Sous X11 (`xclip`) : non testé.
+For fields where auto-typing fails. The password is copied (with the "sensitive" hint on Wayland), then **cleared after 30 s** (`AUTOPASS_CLEAR_DELAY`, in seconds).
+- Only the line copied by autopass is cleared: if you copied something else in the meantime, the clipboard is left alone.
+- If `cliphist` is installed, the entry matching this password is removed from it, and only that one.
+- A background process therefore stays alive until the clear (30 s), only when `copy` is used.
+- On X11 (`xclip`): untested.
 
-## Commandes
+## Commands
 
-| Commande | Effet |
+| Command | Effect |
 |---|---|
-| `autopass` | saisit le compte de la fenêtre active (via le raccourci clavier) |
-| `autopass --add` | ajoute un compte au coffre depuis un terminal : clique sur la fenêtre pendant 3 s (`AUTOPASS_ADD_DELAY`), puis choisis le motif (classe, titre court ou libre), l'identifiant, le mot de passe (saisi sans écho, confirmé) et une séquence optionnelle. Le coffre existant n'est jamais écrasé s'il n'a pas pu être lu |
-| `autopass --check` | valide tout le coffre (lignes mal formées, motifs vides, regex et séquences invalides, motifs en double avec des comptes différents). N'affiche jamais de mot de passe |
-| `autopass --dry-run` | montre quelles règles correspondent à la fenêtre active et ce qui se passerait (saisie directe ou menu), sans rien taper : `sleep 3; autopass --dry-run` |
-| `autopass --window` | affiche la classe et le titre de la fenêtre active |
+| `autopass` | types the account of the active window (via the keyboard shortcut) |
+| `autopass --add` | adds an account to the vault from a terminal: click on the window within 3 s (`AUTOPASS_ADD_DELAY`), then choose the pattern (class, short title or free), the username, the password (typed without echo, confirmed) and an optional sequence. The existing vault is never overwritten if it could not be read |
+| `autopass --check` | validates the whole vault (malformed lines, empty patterns, invalid regexes and sequences, duplicate patterns with different accounts). Never prints a password |
+| `autopass --dry-run` | shows which rules match the active window and what would happen (direct typing or menu), without typing anything: `sleep 3; autopass --dry-run` |
+| `autopass --window` | prints the class and title of the active window |
 
-Les erreurs (coffre illisible, passphrase annulée, outil manquant, saisie échouée) donnent une notification et un message sur stderr.
+Errors (unreadable vault, cancelled passphrase, missing tool, failed typing) give a notification and a message on stderr.
 
 ## Tests
 
-`tests/run.sh` lance les tests avec de faux outils (`wtype`, `pass`, `wl-copy`, `cliphist`...) : il ne touche ni au vrai coffre ni au presse-papier.
+`tests/run.sh` runs the tests with fake tools (`wtype`, `pass`, `wl-copy`, `cliphist`...): it touches neither the real vault nor the clipboard.
 
-## Tester chaque brique
+## Testing each piece
 
-Avant d'utiliser le raccourci, tester séparément la détection de fenêtre et la saisie.
+Before using the shortcut, test window detection and typing separately.
 
-**1. Fenêtre active** : cliquer sur la fenêtre voulue pendant les 3 secondes.
+**1. Active window**: click on the wanted window during the 3 seconds.
 
     sleep 3; autopass --window
 
-Doit afficher la classe puis le titre de la fenêtre. C'est aussi la commande qui donne le motif à mettre dans le coffre.
+Must print the class, then the title of the window. It is also the command that gives the pattern to put in the vault.
 
-**2. Saisie seule** : cliquer dans un champ texte pendant les 3 secondes. Le texte doit sortir exact.
+**2. Typing alone**: click in a text field during the 3 seconds. The text must come out exact.
 
-Hyprland :
+Hyprland:
 
-    sleep 3; printf '%s' 'moi@example.com' | wtype -
+    sleep 3; printf '%s' 'me@example.com' | wtype -
 
-KDE Wayland :
+KDE Wayland:
 
-    sleep 3; printf 'type moi@example.com\n' | DOTOOL_XKB_LAYOUT=fr dotool
+    sleep 3; printf 'type me@example.com\n' | DOTOOL_XKB_LAYOUT=fr dotool
 
-X11 :
+X11:
 
-    sleep 3; printf '%s' 'moi@example.com' | xdotool type --file -
+    sleep 3; printf '%s' 'me@example.com' | xdotool type --file -
 
-- Vérifier surtout `@`, les chiffres et les lettres qui changent d'une disposition de clavier à l'autre.
-- Tester aussi dans une application Electron (Discord, VS Code), plus sensible à la saisie rapide.
-- Si les caractères sont faux sous KDE, régler `DOTOOL_XKB_LAYOUT` (par exemple `fr`) et éventuellement `DOTOOL_XKB_VARIANT`.
+- Check `@`, digits and letters that change between keyboard layouts.
+- Also test in an Electron app (Discord, VS Code), which is more sensitive to fast typing.
+- If characters are wrong on KDE, set `DOTOOL_XKB_LAYOUT` (for example `fr`) and possibly `DOTOOL_XKB_VARIANT`.
 
-## Utilisation
-Cliquer dans le champ identifiant, puis lancer le raccourci. La passphrase GPG est demandée la première fois.
+## Usage
+Click in the username field, then run the shortcut. The GPG passphrase is asked the first time.
 
-## Sauvegarde de la clé GPG
-Sans la clé privée et sa passphrase, le coffre est irrécupérable (réinstallation, disque mort).
-La sauvegarder une fois, hors du PC, et ne jamais la mettre dans un dépôt git. La procédure est dans la documentation GPG liée plus bas.
+## GPG key backup
+Without the private key and its passphrase, the vault is unrecoverable (reinstall, dead disk).
+Back it up once, off the PC, and never put it in a git repository. The procedure is in the GPG documentation linked below.
 
-## Dépannage
-- **Notification « Aucune règle pour : ... »** : aucun motif ne correspond à la classe ni au titre. Refaire `autopass --window`, ou ajouter la règle avec `autopass --add`.
-- **Le coffre ne marche pas comme prévu** : `autopass --check` signale les lignes fautives, `autopass --dry-run` montre ce qui correspond.
-- **Caractères qui apparaissent puis disparaissent** (apps Electron comme Discord) : sous Hyprland, le script tape donc le texte caractère par caractère avec `wtype`.
-- **Caractères faux** : ne pas utiliser `ydotool`, qui envoie des codes de touches QWERTY et donne un résultat faux sur un clavier AZERTY.
-- **Rien ne se passe sous Hyprland** : vérifier que le bind est chargé (`hyprctl binds | grep autopass`).
-- **`dotool` ou `ydotool` ne tape rien, ou erreur de permission** : voir [docs/depannage.md](docs/depannage.md) (accès à `/dev/uinput`).
+## Troubleshooting
+- **"No rule for: ..." notification**: no pattern matches the class or the title. Run `autopass --window` again, or add the rule with `autopass --add`.
+- **The vault does not behave as expected**: `autopass --check` flags faulty lines, `autopass --dry-run` shows what matches.
+- **Characters that appear then disappear** (Electron apps like Discord): on Hyprland, the script therefore types the text character by character with `wtype`.
+- **Wrong characters**: do not use `ydotool`, which sends QWERTY key codes and gives a wrong result on an AZERTY keyboard.
+- **Nothing happens on Hyprland**: check that the bind is loaded (`hyprctl binds | grep autopass`).
+- **`dotool` or `ydotool` types nothing, or permission error**: see [docs/troubleshooting.md](docs/troubleshooting.md) (access to `/dev/uinput`).
 
-## Limites et sécurité
-- Aucune protection anti-phishing : toute page dont le titre contient le motif déclenche la saisie (comme l'Auto-Type de KeePass).
-- Chaque appui déchiffre tout le coffre en mémoire, le temps de trouver la bonne ligne, puis la variable est effacée.
-- Le mot de passe passe par l'entrée standard des outils de saisie, donc il n'apparaît jamais dans `ps`, et il n'est jamais écrit sur disque en clair.
-- Pas de TOTP / double authentification : le code se tape à la main.
-- Le dépôt ne contient aucun secret : le coffre vit dans `~/.password-store`, hors du repo.
+## Limits and security
+- No anti-phishing protection: any page whose title contains the pattern triggers typing (like KeePass Auto-Type).
+- Each press decrypts the whole vault in memory, just long enough to find the right line, then the variable is cleared.
+- The password goes through the typing tools' standard input, so it never appears in `ps`, and it is never written to disk in clear text.
+- No TOTP / two-factor authentication: the code is typed by hand.
+- The repository contains no secret: the vault lives in `~/.password-store`, outside the repo.
 
-## Documentation officielle
-- `pass` : <https://www.passwordstore.org/> et <https://wiki.archlinux.org/title/Pass>
-- GPG : <https://wiki.archlinux.org/title/GnuPG>
-- AUR (installer `kdotool`, `dotool`) : <https://wiki.archlinux.org/title/AUR>
-- `wtype` : <https://github.com/atx/wtype>
-- `kdotool` : <https://github.com/jinliu/kdotool>
-- `dotool` : <https://git.sr.ht/~geb/dotool>
-- `xdotool` : <https://github.com/jordansissel/xdotool>
-- `jq` : <https://jqlang.github.io/jq/>
-- Hyprland : <https://wiki.hyprland.org/>
+## Official documentation
+- `pass`: <https://www.passwordstore.org/> and <https://wiki.archlinux.org/title/Pass>
+- GPG: <https://wiki.archlinux.org/title/GnuPG>
+- AUR (installing `kdotool`, `dotool`): <https://wiki.archlinux.org/title/AUR>
+- `wtype`: <https://github.com/atx/wtype>
+- `kdotool`: <https://github.com/jinliu/kdotool>
+- `dotool`: <https://git.sr.ht/~geb/dotool>
+- `xdotool`: <https://github.com/jordansissel/xdotool>
+- `jq`: <https://jqlang.github.io/jq/>
+- Hyprland: <https://wiki.hyprland.org/>
