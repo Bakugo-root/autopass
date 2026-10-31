@@ -66,6 +66,30 @@ press() {   # $1 = tab | enter
   esac
 }
 
+# ---------- séquence de touches ----------
+default_actions="user,tab,pass,enter"
+
+# vérifie les étapes AVANT de taper quoi que ce soit
+check_steps() {
+  local step
+  [ "$#" -gt 0 ] || return 1
+  for step in "$@"; do
+    case $step in user|pass|tab|enter|wait) ;; *) return 1 ;; esac
+  done
+}
+
+run_steps() {
+  local step
+  for step in "$@"; do
+    case $step in
+      user)      type_text "$user" ;;
+      pass)      type_text "$pw" ;;
+      tab|enter) press "$step" ;;
+      wait)      sleep 1 ;;
+    esac
+  done
+}
+
 # ---------- main ----------
 get_window
 
@@ -76,11 +100,18 @@ fi
 
 vault=$(pass show autopass/vault)
 
-user=""; pw=""; found=0
+user=""; pw=""; actions=$default_actions; found=0
 while IFS=';' read -r pattern u p; do
   case "$pattern" in ''|'#'*) continue ;; esac
+  rule_actions=$default_actions
+  # motif{étape,étape,...} : on sépare la séquence du motif (dernier '{')
+  if [[ $pattern == *'{'*'}' ]]; then
+    rule_actions=${pattern##*\{}
+    rule_actions=${rule_actions%\}}
+    pattern=${pattern%\{*}
+  fi
   if [ "$pattern" = "$class" ] || [[ "$title" == *"$pattern"* ]]; then
-    user=$u; pw=$p; found=1
+    user=$u; pw=$p; actions=$rule_actions; found=1
     break
   fi
 done <<<"$vault"
@@ -93,7 +124,10 @@ if [ "$found" -eq 0 ]; then
   exit 1
 fi
 
-type_text "$user"
-press tab
-type_text "$pw"
-press enter
+actions=${actions//[[:space:]]/}
+IFS=',' read -ra steps <<<"${actions,,}"
+if ! check_steps "${steps[@]}"; then
+  notify-send autopass "Séquence invalide : {$actions}"
+  exit 1
+fi
+run_steps "${steps[@]}"

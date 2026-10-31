@@ -1,7 +1,7 @@
 # autop@ss
 
 Auto-saisie d'identifiant et de mot de passe pour Linux, basée sur `pass` (GPG).
-Raccourci clavier -> fenêtre active -> ligne du coffre -> identifiant, Tab, mot de passe, Entrée.
+Raccourci clavier -> fenêtre active -> ligne du coffre -> identifiant, Tab, mot de passe, Entrée (séquence modifiable par compte).
 Rien ne tourne en permanence : le script démarre au raccourci puis s'arrête.
 
 Ce dépôt suppose que vous savez utiliser `pass` et GPG. Sinon, commencer par leur documentation (section « Documentation officielle » en bas).
@@ -96,6 +96,34 @@ Exemples:
 - La première ligne qui correspond gagne, donc l'ordre compte.
 - Les lignes vides et celles qui commencent par `#` sont ignorées.
 - Le mot de passe est tout ce qui suit le 2e `;` (il peut contenir des `;`). Le motif et l'identifiant ne doivent pas en contenir.
+
+### Séquence de saisie par compte
+
+Par défaut, autopass tape : identifiant, Tab, mot de passe, Entrée. Pour changer ça sur un compte, ajouter la séquence entre accolades **à la fin du motif** :
+
+    motif{étape,étape,...};identifiant;mot_de_passe
+
+Étapes possibles :
+
+| Étape | Effet |
+|---|---|
+| `user` | tape l'identifiant |
+| `pass` | tape le mot de passe |
+| `tab` | appuie sur Tab |
+| `enter` | appuie sur Entrée |
+| `wait` | pause d'une seconde (page qui charge entre deux étapes) |
+
+Exemples :
+
+    discord;moi@example.com;motdepasse1                      # défaut : user,tab,pass,enter
+    google{user,enter,wait,pass,enter};moi@example.com;mdp3  # identifiant et mot de passe sur deux pages
+    banque{pass,enter};;123456                               # seulement le mot de passe (identifiant vide)
+    site{user,tab,pass};moi;mdp4                             # remplit sans valider
+
+- Les espaces et la casse sont ignorés dans la séquence (`{ pass , ENTER }` fonctionne).
+- La séquence est vérifiée **avant** de taper : une étape inconnue ou une séquence vide donne une notification « Séquence invalide » et rien n'est saisi.
+- Les accolades ne servent pas à la comparaison : seul ce qui précède le dernier `{` est le motif.
+- Un motif qui se termine lui-même par `}` doit recevoir une séquence explicite, par exemple `Titre {spécial}{user,tab,pass,enter}`.
 
 ## Tester chaque brique
 
