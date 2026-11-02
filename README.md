@@ -155,6 +155,8 @@ For fields where auto-typing fails. The password is copied (with the "sensitive"
 | `autopass --dry-run` | shows which rules match the active window and what would happen (direct typing or menu), without typing anything: `sleep 3; autopass --dry-run` |
 | `autopass --window` | prints the class and title of the active window |
 
+`--list`, `--edit`, `--remove` and `--passwd` **ask for the GPG passphrase again** every time, even if it is cached (autopass flushes the `gpg-agent` cache with `gpgconf --reload gpg-agent` first, and refuses to continue if it cannot). Someone sitting at your unlocked session cannot read or change your accounts with them. The side effect: the next keyboard-shortcut use asks for the passphrase again too. `--add`, `--check`, `--dry-run` and the keyboard shortcut itself use the cache as usual.
+
 Generated passwords use letters, digits and `!@#%^&*_=+.?-` (never `;`), 8 to 128 characters (20 by default), taken from `/dev/urandom`.
 
 `--remove` and `--passwd` need a menu (see Dependencies) and a terminal for the confirmation and the password prompts.

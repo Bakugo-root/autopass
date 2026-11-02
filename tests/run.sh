@@ -21,6 +21,7 @@ mock pass 'case $1 in
   edit) echo "EDIT:$EDITOR:$2" >>"$T/log" ;;
 esac'
 mock nano 'true'
+mock gpgconf '[ ! -e "$T/gpgconf_fail" ] && echo "GPGCONF:$*" >>"$T/log"'
 mock notify-send 'echo "NOTIFY:$2" >>"$T/log"'
 mock menu 'cat >"$T/menu_in"
 [ -e "$T/menu_switch" ] && cp "$T/menu_switch" "$T/win.json"
@@ -52,7 +53,7 @@ hasnt(){ if [[ $2 != *"$3"* ]]; then ok "$1"; else ko "$1" "[$3] found in [$2]";
 
 win()   { printf '{"class":"%s","title":"%s"}\n' "$1" "$2" >"$T/win.json"; }
 vault() { printf '%s\n' "$1" >"$T/vault"; touch "$T/store/autopass/vault.gpg"; }
-reset() { : >"$T/log"; rm -f "$T/pass_fail" "$T/menu_switch" "$T/clip" "$T/wtype_fail" "$T/hist"; unset MENU_CHOICE; }
+reset() { : >"$T/log"; rm -f "$T/pass_fail" "$T/menu_switch" "$T/clip" "$T/wtype_fail" "$T/hist" "$T/gpgconf_fail"; unset MENU_CHOICE; }
 # readable log: typed text, <tab>, <enter>, [NOTIFY ...]
 typed() {
   local out="" l
@@ -304,6 +305,30 @@ unset MENU_CHOICE
 vault 'garbage line'; reset; export MENU_CHOICE=1
 printf 'a\na\n' | "$root/autopass" --passwd >"$T/o" 2>&1
 eq "passwd: malformed line refused" "$(cat "$T/vault")" 'garbage line'
+unset MENU_CHOICE
+
+echo "== passphrase asked again =="
+G='GPGCONF:--reload gpg-agent'
+vault 'discord;a;p1'
+reset; run --list;  has "list: flushes the gpg-agent cache" "$(cat "$T/log")" "$G"
+reset; EDITOR=myeditor run --edit; has "edit: flushes the gpg-agent cache" "$(cat "$T/log")" "$G"
+reset; export MENU_CHOICE=1; printf 'n\n' | "$root/autopass" --remove >"$T/o" 2>&1
+has "remove: flushes the gpg-agent cache" "$(cat "$T/log")" "$G"
+reset; printf 'a\na\n' | "$root/autopass" --passwd >"$T/o" 2>&1
+has "passwd: flushes the gpg-agent cache" "$(cat "$T/log")" "$G"
+unset MENU_CHOICE
+reset; win firefox "Zzz"; printf '1\nme\nm\nm\n\n' | "$root/autopass" --add >"$T/o" 2>&1
+hasnt "add: cache left alone" "$(cat "$T/log")" "GPGCONF"
+reset; win discord "x"; run
+hasnt "typing by shortcut: cache left alone" "$(cat "$T/log")" "GPGCONF"
+reset; run --check; hasnt "check: cache left alone" "$(cat "$T/log")" "GPGCONF"
+
+vault 'discord;a;p1'; reset; touch "$T/gpgconf_fail"
+run --list; has "list: refuses when the cache cannot be flushed" "$out" 'Could not flush'; hasnt "list: nothing shown" "$out" 'discord'
+reset; touch "$T/gpgconf_fail"; export MENU_CHOICE=1; printf 'y\n' | "$root/autopass" --remove >"$T/o" 2>&1
+eq "remove: refuses when the cache cannot be flushed" "$(cat "$T/vault")" 'discord;a;p1'
+reset; touch "$T/gpgconf_fail"; EDITOR=myeditor run --edit
+hasnt "edit: editor not opened when the cache cannot be flushed" "$(cat "$T/log")" 'EDIT:'
 unset MENU_CHOICE
 
 echo
