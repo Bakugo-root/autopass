@@ -18,7 +18,9 @@ mock wtype 'if [ "$1" = "-" ]; then echo "TYPE:$(cat)" >>"$T/log"; else echo "KE
 mock pass 'case $1 in
   show) [ -e "$T/pass_fail" ] && exit 1; cat "$T/vault" ;;
   insert) cat >"$T/vault"; echo INSERT >>"$T/log" ;;
+  edit) echo "EDIT:$EDITOR:$2" >>"$T/log" ;;
 esac'
+mock nano 'true'
 mock notify-send 'echo "NOTIFY:$2" >>"$T/log"'
 mock menu 'cat >"$T/menu_in"
 [ -e "$T/menu_switch" ] && cp "$T/menu_switch" "$T/win.json"
@@ -229,6 +231,80 @@ eq "add: unreadable vault: never overwritten" "$(cat "$T/vault")" "$before"; has
 reset; win discord "x"
 printf '1\nme\nm\nm\nuser,whatever\n' | "$root/autopass" --add >"$T/o" 2>&1
 eq "add: invalid sequence: vault intact" "$(cat "$T/vault")" "$before"
+
+echo "== --add: generated password =="
+vault 'discord;a;b'; reset; win firefox "Other"
+printf '1\nme\n\n12\n\n' | "$root/autopass" --add >"$T/o" 2>&1
+gen=$(sed -n 2p "$T/vault"); gen=${gen#*;me;}
+[[ $gen =~ ^[A-Za-z0-9\!@#%^\&*_=+.?-]{12}$ ]] && ok "generated: 12 allowed characters, no ;" || ko "generated: 12 allowed characters, no ;" "[$gen]"
+hasnt "generated: never displayed" "$(cat "$T/o")" "$gen"
+reset; win firefox "Other2"
+printf '1\nme\n\n5\n\n' | "$root/autopass" --add >"$T/o" 2>&1
+eq "generated: length 5 refused, vault unchanged" "$(wc -l <"$T/vault")" 2
+
+echo "== --list =="
+vault 'discord;me;SecretOne
+site{user,pass};gh;SecretTwo
+garbage line'
+run --list; has "list: rule shown" "$out" 'line 1: discord → me  {user,tab,pass,enter}'
+has "list: custom sequence" "$out" 'line 2: site → gh  {user,pass}'
+has "list: malformed line flagged" "$out" 'line 3: (malformed line'
+hasnt "list: no password" "$out" 'Secret'
+hasnt "list: malformed line not echoed" "$out" 'garbage'
+
+echo "== --edit =="
+reset; EDITOR=myeditor run --edit; has "edit: uses EDITOR" "$(cat "$T/log")" 'EDIT:myeditor:autopass/vault'
+reset; EDITOR= VISUAL= run --edit; has "edit: falls back to an installed editor" "$(cat "$T/log")" 'EDIT:nano:autopass/vault'
+has "edit: checks the vault afterwards" "$out" 'rule(s)'
+
+echo "== --remove =="
+vault 'discord;a;p1
+github;b;p2
+gitlab;c;p3'
+reset; export MENU_CHOICE=2
+printf 'y\n' | "$root/autopass" --remove >"$T/o" 2>&1
+eq "remove: only the chosen line removed" "$(cat "$T/vault")" $'discord;a;p1\ngitlab;c;p3'
+has "remove: menu shows line numbers" "$(cat "$T/menu_in")" '[line 2]'
+hasnt "remove: menu never shows passwords" "$(cat "$T/menu_in")" 'p2'
+
+vault 'discord;a;p1'; reset; export MENU_CHOICE=1
+printf 'n\n' | "$root/autopass" --remove >"$T/o" 2>&1
+eq "remove: refused at the confirmation" "$(cat "$T/vault")" 'discord;a;p1'
+
+reset; export MENU_CHOICE=1
+printf 'y\n' | "$root/autopass" --remove >"$T/o" 2>&1
+has "remove: last rule leaves a valid empty vault" "$(cat "$T/vault")" '# autopass vault'
+unset MENU_CHOICE
+
+vault 'discord;a;p1
+
+# my note
+github;b;p2'
+reset; export MENU_CHOICE=1
+printf 'y\n' | "$root/autopass" --remove >"$T/o" 2>&1
+eq "remove: comments and blank lines preserved" "$(cat "$T/vault")" $'\n# my note\ngithub;b;p2'
+unset MENU_CHOICE
+
+echo "== --passwd =="
+vault 'discord{pass,enter};a;old;pw
+github;b;p2'
+reset; export MENU_CHOICE=1
+printf 'NewSecret\nNewSecret\n' | "$root/autopass" --passwd >"$T/o" 2>&1
+eq "passwd: only the password replaced, pattern/sequence/other lines kept" "$(cat "$T/vault")" $'discord{pass,enter};a;NewSecret\ngithub;b;p2'
+
+vault 'discord;a;old'; reset; export MENU_CHOICE=1
+printf 'x1\nx2\n' | "$root/autopass" --passwd >"$T/o" 2>&1
+eq "passwd: different passwords: vault intact" "$(cat "$T/vault")" 'discord;a;old'
+
+printf '\n16\n' | "$root/autopass" --passwd >"$T/o" 2>&1
+newpw=$(cat "$T/vault"); newpw=${newpw#discord;a;}
+[[ ${#newpw} -eq 16 ]] && ok "passwd: generated 16 characters" || ko "passwd: generated 16 characters" "[$newpw]"
+unset MENU_CHOICE
+
+vault 'garbage line'; reset; export MENU_CHOICE=1
+printf 'a\na\n' | "$root/autopass" --passwd >"$T/o" 2>&1
+eq "passwd: malformed line refused" "$(cat "$T/vault")" 'garbage line'
+unset MENU_CHOICE
 
 echo
 printf '%d ok, %d failure(s)\n' "$pass_n" "$fail_n"

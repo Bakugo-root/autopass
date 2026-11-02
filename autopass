@@ -15,6 +15,10 @@ Usage: autopass [option]
   --dry-run    shows which rule(s) match, without typing anything
   --check      validates the vault (lines, patterns, sequences), without typing
   --add        adds an account to the vault from a window (run from a terminal)
+  --list       lists the vault rules (never prints passwords)
+  --edit       opens the vault in an editor, then checks it
+  --remove     removes a rule, chosen in the menu
+  --passwd     changes the password of a rule, chosen in the menu
   -h, --help   this help
 EOF
 }
@@ -213,6 +217,40 @@ load_vault() {
     || die "Vault unreadable (GPG passphrase cancelled or autopass/vault missing)"
 }
 
+# writes the whole vault text; never writes an empty entry
+write_vault() {
+  local text=$1
+  [[ $text =~ [^[:space:]] ]] || text='# autopass vault: one line per account, pattern;username;password'
+  printf '%s\n' "$text" | pass insert -m -f autopass/vault >/dev/null || die "Writing the vault failed"
+}
+
+# random password of $1 characters (letters, digits and a few symbols; never ';')
+gen_password() {
+  local n=$1 all
+  [[ $n =~ ^[0-9]+$ ]] && [ "$n" -ge 8 ] && [ "$n" -le 128 ] || die "Invalid length (8 to 128)"
+  # filter a big block of random bytes: no modulo bias, no SIGPIPE under pipefail
+  all=$(head -c 8192 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9!@#%^&*_=+.?-')
+  [ "${#all}" -ge "$n" ] || die "Not enough randomness available"
+  printf '%s' "${all:0:n}"
+}
+
+# asks for a password into $newpw: typed twice, or generated when left empty (never displayed)
+ask_password() {
+  local pw2 n
+  printf 'Password (Enter = generate): ' >&2
+  IFS= read -rs newpw || die "Input interrupted"; printf '\n' >&2
+  if [ -z "$newpw" ]; then
+    printf 'Length [20]: ' >&2
+    IFS= read -r n || die "Input interrupted"
+    newpw=$(gen_password "${n:-20}") || exit 1
+    printf 'Generated a %s-character password (not displayed)\n' "${#newpw}" >&2
+  else
+    printf 'Confirm: ' >&2
+    IFS= read -rs pw2 || die "Input interrupted"; printf '\n' >&2
+    [ "$newpw" = "$pw2" ] || die "The two passwords differ: nothing was changed"
+  fi
+}
+
 # fills the r_* arrays (one slot per rule) from $vault
 parse_vault() {
   r_pat=(); r_user=(); r_pw=(); r_seq=(); r_seqok=(); r_line=(); r_err=()
@@ -291,14 +329,14 @@ pick_menu() {
       if command -v "${c%% *}" >/dev/null 2>&1; then m=$c; break; fi
     done
   fi
-  [ -n "$m" ] || die "Several rules match but no menu is installed (fuzzel, wofi, rofi, bemenu, tofi): nothing was typed"
+  [ -n "$m" ] || die "No menu installed (fuzzel, wofi, rofi, bemenu, tofi): nothing was done"
   read -ra cmd <<<"$m"
   out=$(
     for k in "${!matches[@]}"; do
       i=${matches[k]}
-      printf '%d) %s — %s\n' "$((k + 1))" "${r_pat[i]}" "${r_user[i]}"
+      printf '%d) %s — %s  [line %s]\n' "$((k + 1))" "${r_pat[i]:-(malformed line)}" "${r_user[i]}" "${r_line[i]}"
     done | "${cmd[@]}"
-  ) || exit 0   # menu cancelled: type nothing
+  ) || exit 0   # menu cancelled: do nothing
   k=${out%%')'*}
   if ! [[ $k =~ ^[0-9]+$ ]] || [ "$k" -lt 1 ] || [ "$k" -gt "${#matches[@]}" ]; then exit 0; fi
   sel=${matches[k - 1]}
@@ -347,7 +385,7 @@ cmd_check() {
 
 cmd_add() {
   local store_dir=${PASSWORD_STORE_DIR:-$HOME/.password-store}
-  local choice pattern user pw pw2 seq entry i st dup="" ans
+  local choice pattern user pw seq entry i st dup="" ans newpw
   local -a steps
   need pass
   detect_backend
@@ -372,12 +410,8 @@ cmd_add() {
   printf 'Username: ' >&2
   IFS= read -r user || die "Input interrupted"
   [[ $user != *';'* ]] || die "The username cannot contain ';'"
-  printf 'Password: ' >&2
-  IFS= read -rs pw || die "Input interrupted"; printf '\n' >&2
-  printf 'Confirm: ' >&2
-  IFS= read -rs pw2 || die "Input interrupted"; printf '\n' >&2
-  [ -n "$pw" ] || die "Empty password"
-  [ "$pw" = "$pw2" ] || die "The two passwords differ: nothing was added"
+  ask_password
+  pw=$newpw
   printf 'Sequence [%s] (Enter = default): ' "$default_actions" >&2
   IFS= read -r seq || die "Input interrupted"
   seq=${seq//[[:space:]]/}
@@ -406,8 +440,74 @@ cmd_add() {
     [[ $ans == [yY]* ]] || { printf 'Cancelled.\n' >&2; exit 0; }
   fi
   if [ -n "$vault" ]; then vault=$vault$'\n'$entry; else vault=$entry; fi
-  printf '%s\n' "$vault" | pass insert -m -f autopass/vault >/dev/null || die "Writing the vault failed"
+  write_vault "$vault"
   printf 'Added: %s → %s\n' "$pattern" "$user"
+}
+
+cmd_list() {
+  local i
+  need pass
+  load_vault
+  parse_vault
+  [ "${#r_pat[@]}" -gt 0 ] || { printf '(empty vault)\n'; return 0; }
+  for i in "${!r_pat[@]}"; do
+    if [ -n "${r_err[i]}" ]; then
+      printf 'line %s: (%s)\n' "${r_line[i]}" "${r_err[i]}"
+    else
+      printf 'line %s: %s → %s  {%s}\n' "${r_line[i]}" "${r_pat[i]}" "${r_user[i]}" "${r_seq[i]}"
+    fi
+  done
+}
+
+cmd_edit() {
+  local ed=${EDITOR:-} c
+  need pass
+  [ -n "$ed" ] || ed=${VISUAL:-}
+  if [ -z "$ed" ]; then
+    for c in nano vim nvim vi micro; do
+      if command -v "$c" >/dev/null 2>&1; then ed=$c; break; fi
+    done
+  fi
+  [ -n "$ed" ] || die "No editor found: set EDITOR (for example EDITOR=nano)"
+  env EDITOR="$ed" pass edit autopass/vault || die "pass edit failed"
+  cmd_check || true   # shows what is wrong, if anything
+}
+
+# chooses one rule of the vault in the menu: fills $sel and $raw (raw vault lines)
+pick_rule() {
+  need pass
+  load_vault
+  parse_vault
+  [ "${#r_pat[@]}" -gt 0 ] || die "The vault has no rule"
+  matches=("${!r_pat[@]}")
+  pick_menu
+  mapfile -t raw <<<"$vault"
+}
+
+cmd_remove() {
+  local ans
+  local -a raw
+  pick_rule
+  printf 'Remove line %s (%s → %s)? [y/N] ' "${r_line[sel]}" "${r_pat[sel]:-malformed line}" "${r_user[sel]}" >&2
+  IFS= read -r ans || ans=n
+  [[ $ans == [yY]* ]] || { printf 'Cancelled.\n' >&2; exit 0; }
+  unset "raw[$((r_line[sel] - 1))]"
+  write_vault "$(printf '%s\n' "${raw[@]}")"
+  printf 'Removed line %s\n' "${r_line[sel]}"
+}
+
+cmd_passwd() {
+  local newpw prefix line ln
+  local -a raw
+  pick_rule
+  [ -z "${r_err[sel]}" ] || die "This line is malformed: fix it with autopass --edit"
+  ask_password
+  ln=$((r_line[sel] - 1))
+  line=${raw[ln]}
+  prefix=${line%%;*}; line=${line#*;}; prefix=$prefix';'${line%%;*}
+  raw[ln]="$prefix;$newpw"
+  write_vault "$(printf '%s\n' "${raw[@]}")"
+  printf 'Password updated: %s → %s\n' "${r_pat[sel]}" "${r_user[sel]}"
 }
 
 # typing / dry-run: $1 = dry (1) or not (0)
@@ -478,6 +578,10 @@ case ${1:-} in
   --window)    cmd_window ;;
   --check)     cmd_check ;;
   --add)       cmd_add ;;
+  --list)      cmd_list ;;
+  --edit)      cmd_edit ;;
+  --remove)    cmd_remove ;;
+  --passwd)    cmd_passwd ;;
   -h|--help)   usage ;;
   *)           usage >&2; exit 2 ;;
 esac

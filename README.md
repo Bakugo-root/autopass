@@ -146,10 +146,18 @@ For fields where auto-typing fails. The password is copied (with the "sensitive"
 | Command | Effect |
 |---|---|
 | `autopass` | types the account of the active window (via the keyboard shortcut) |
-| `autopass --add` | adds an account to the vault from a terminal: click on the window within 3 s (`AUTOPASS_ADD_DELAY`), then choose the pattern (class, short title or free), the username, the password (typed without echo, confirmed) and an optional sequence. The existing vault is never overwritten if it could not be read |
+| `autopass --add` | adds an account to the vault from a terminal: click on the window within 3 s (`AUTOPASS_ADD_DELAY`), then choose the pattern (class, short title or free), the username, the password (typed without echo and confirmed, or **left empty to generate a random one**, never displayed) and an optional sequence. The existing vault is never overwritten if it could not be read |
+| `autopass --list` | lists the rules (line number, pattern, username, sequence). Never prints a password |
+| `autopass --edit` | opens the vault in your editor (`$EDITOR`, else `$VISUAL`, else the first of `nano vim nvim vi micro` found), then runs `--check` on the result |
+| `autopass --remove` | removes a rule chosen in the menu, after a `[y/N]` confirmation. Other lines, comments and blank lines are kept |
+| `autopass --passwd` | changes the password of a rule chosen in the menu (typed twice, or left empty to generate one). The pattern, sequence and username are kept |
 | `autopass --check` | validates the whole vault (malformed lines, empty patterns, invalid regexes and sequences, duplicate patterns with different accounts). Never prints a password |
 | `autopass --dry-run` | shows which rules match the active window and what would happen (direct typing or menu), without typing anything: `sleep 3; autopass --dry-run` |
 | `autopass --window` | prints the class and title of the active window |
+
+Generated passwords use letters, digits and `!@#%^&*_=+.?-` (never `;`), 8 to 128 characters (20 by default), taken from `/dev/urandom`.
+
+`--remove` and `--passwd` need a menu (see Dependencies) and a terminal for the confirmation and the password prompts.
 
 Errors (unreadable vault, cancelled passphrase, missing tool, failed typing) give a notification and a message on stderr.
 
