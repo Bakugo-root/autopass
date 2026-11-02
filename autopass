@@ -6,6 +6,7 @@ layout=${AUTOPASS_LAYOUT:-fr}               # keyboard layout for dotool (KDE Wa
 clear_delay=${AUTOPASS_CLEAR_DELAY:-30}     # seconds before the copied password is cleared
 add_delay=${AUTOPASS_ADD_DELAY:-3}          # seconds to click on the window with --add
 dry_delay=${AUTOPASS_DRY_DELAY:-3}          # seconds to click on the window with --dry-run
+window_delay=${AUTOPASS_WINDOW_DELAY:-3}    # seconds to click on the window with --window
 default_actions="user,tab,pass,enter"
 
 usage() {
@@ -353,6 +354,8 @@ pick_menu() {
 cmd_window() {
   detect_backend
   need_window_tools
+  printf 'Click on the window to inspect: capture in %s s…\n' "$window_delay" >&2
+  sleep "$window_delay"
   get_window
   printf '%s\n%s\n' "$class" "$title"
 }

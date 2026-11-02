@@ -153,7 +153,7 @@ For fields where auto-typing fails. The password is copied (with the "sensitive"
 | `autopass --passwd` | changes the password of a rule chosen in the menu (typed twice, or left empty to generate one). The pattern, sequence and username are kept |
 | `autopass --check` | validates the whole vault (malformed lines, empty patterns, invalid regexes and sequences, duplicate patterns with different accounts). Never prints a password |
 | `autopass --dry-run` | shows which rules match the active window and what would happen (direct typing or menu), without typing anything. Run it from a terminal, then click on the window within 3 s (`AUTOPASS_DRY_DELAY`) |
-| `autopass --window` | prints the class and title of the active window |
+| `autopass --window` | prints the class and title of the active window. Run it from a terminal, then click on the window within 3 s (`AUTOPASS_WINDOW_DELAY`) |
 
 `--list`, `--edit`, `--remove` and `--passwd` **ask for the GPG passphrase again** every time, even if it is cached (autopass flushes the `gpg-agent` cache with `gpgconf --reload gpg-agent` first, and refuses to continue if it cannot). Someone sitting at your unlocked session cannot read or change your accounts with them. The side effect: the next keyboard-shortcut use asks for the passphrase again too. `--add`, `--check`, `--dry-run` and the keyboard shortcut itself use the cache as usual.
 
@@ -171,9 +171,9 @@ Errors (unreadable vault, cancelled passphrase, missing tool, failed typing) giv
 
 Before using the shortcut, test window detection and typing separately.
 
-**1. Active window**: click on the wanted window during the 3 seconds.
+**1. Active window**: run the command, then click on the wanted window during the 3 seconds.
 
-    sleep 3; autopass --window
+    autopass --window
 
 Must print the class, then the title of the window. It is also the command that gives the pattern to put in the vault.
 

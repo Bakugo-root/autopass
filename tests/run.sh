@@ -41,6 +41,7 @@ export PASSWORD_STORE_DIR="$T/store"
 export AUTOPASS_MENU="$T/bin/menu"
 export AUTOPASS_ADD_DELAY=0
 export AUTOPASS_DRY_DELAY=0
+export AUTOPASS_WINDOW_DELAY=0
 export AUTOPASS_CLEAR_DELAY=1
 unset DISPLAY XDG_SESSION_TYPE
 
@@ -177,6 +178,12 @@ eq "cliphist: other entries intact" "$(cat "$T/hist")" $'ID2\tother thing'
 vault 'bank{pass,copy,enter};me;SecretXYZ'
 reset; win bank "x"
 run; has "copy mixed with typing" "$(typed)" 'SecretXYZ'
+
+echo "== --window =="
+reset; win discord "My Title"
+run --window; has "window: waits for the click by itself" "$out" 'Click on the window to inspect: capture in 0 s'
+eq "window: class then title on stdout" "$("$root/autopass" --window 2>/dev/null)" $'discord\nMy Title'
+eq "window: nothing typed" "$(typed)" ''
 
 echo "== --dry-run =="
 vault 'discord;me;VerySecretPassword'
