@@ -152,7 +152,7 @@ For fields where auto-typing fails. The password is copied (with the "sensitive"
 | `autopass --remove` | removes a rule chosen in the menu, after a `[y/N]` confirmation. Other lines, comments and blank lines are kept |
 | `autopass --passwd` | changes the password of a rule chosen in the menu (typed twice, or left empty to generate one). The pattern, sequence and username are kept |
 | `autopass --check` | validates the whole vault (malformed lines, empty patterns, invalid regexes and sequences, duplicate patterns with different accounts). Never prints a password |
-| `autopass --dry-run` | shows which rules match the active window and what would happen (direct typing or menu), without typing anything: `sleep 3; autopass --dry-run` |
+| `autopass --dry-run` | shows which rules match the active window and what would happen (direct typing or menu), without typing anything. Run it from a terminal, then click on the window within 3 s (`AUTOPASS_DRY_DELAY`) |
 | `autopass --window` | prints the class and title of the active window |
 
 `--list`, `--edit`, `--remove` and `--passwd` **ask for the GPG passphrase again** every time, even if it is cached (autopass flushes the `gpg-agent` cache with `gpgconf --reload gpg-agent` first, and refuses to continue if it cannot). Someone sitting at your unlocked session cannot read or change your accounts with them. The side effect: the next keyboard-shortcut use asks for the passphrase again too. `--add`, `--check`, `--dry-run` and the keyboard shortcut itself use the cache as usual.

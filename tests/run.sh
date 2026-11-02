@@ -40,6 +40,7 @@ export HYPRLAND_INSTANCE_SIGNATURE=test
 export PASSWORD_STORE_DIR="$T/store"
 export AUTOPASS_MENU="$T/bin/menu"
 export AUTOPASS_ADD_DELAY=0
+export AUTOPASS_DRY_DELAY=0
 export AUTOPASS_CLEAR_DELAY=1
 unset DISPLAY XDG_SESSION_TYPE
 
@@ -182,6 +183,7 @@ vault 'discord;me;VerySecretPassword'
 reset; win discord "x"
 run --dry-run; eq "dry-run: nothing typed" "$(typed)" ''; has "dry-run: rule shown" "$out" 'discord → me'
 hasnt "dry-run: no password" "$out" 'VerySecretPassword'; has "dry-run: direct typing" "$out" 'direct typing'
+has "dry-run: waits for the click by itself" "$out" 'Click on the window to test: capture in 0 s'
 vault 'discord;a;1
 discord;b;2'
 run --dry-run; has "dry-run: announces the menu" "$out" 'choice menu'

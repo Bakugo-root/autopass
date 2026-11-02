@@ -5,6 +5,7 @@ shopt -s nocasematch   # patterns are case-insensitive
 layout=${AUTOPASS_LAYOUT:-fr}               # keyboard layout for dotool (KDE Wayland)
 clear_delay=${AUTOPASS_CLEAR_DELAY:-30}     # seconds before the copied password is cleared
 add_delay=${AUTOPASS_ADD_DELAY:-3}          # seconds to click on the window with --add
+dry_delay=${AUTOPASS_DRY_DELAY:-3}          # seconds to click on the window with --dry-run
 default_actions="user,tab,pass,enter"
 
 usage() {
@@ -525,6 +526,10 @@ cmd_type() {
   local -a steps
   detect_backend
   need_window_tools
+  if [ "$dry" -eq 1 ]; then
+    printf 'Click on the window to test: capture in %s s…\n' "$dry_delay" >&2
+    sleep "$dry_delay"
+  fi
   get_window
   need pass
   load_vault
